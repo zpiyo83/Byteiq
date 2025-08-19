@@ -121,7 +121,7 @@ def show_settings():
         language_status = cfg.get("language", "zh-CN")
         model_status = cfg.get("model", "gpt-3.5-turbo")
         
-        print(f"\n{Fore.LIGHTCYAN_EX}⚙️  Forge AI Code 设置{Style.RESET_ALL}")
+        print(f"\n{Fore.LIGHTCYAN_EX}Forge AI Code 设置{Style.RESET_ALL}")
         print(f"{'='*50}")
         print(f"API Key: {api_key_status}")
         print(f"语言: {language_status}")

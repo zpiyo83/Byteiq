@@ -49,12 +49,12 @@ class TodoRenderer:
         
         # 标题
         output.append(f"\n{Fore.LIGHTCYAN_EX}{'='*60}{Style.RESET_ALL}")
-        output.append(f"{Fore.LIGHTCYAN_EX}📋 TODO 任务列表{Style.RESET_ALL}")
+        output.append(f"{Fore.LIGHTCYAN_EX}TODO 任务列表{Style.RESET_ALL}")
         output.append(f"{Fore.LIGHTCYAN_EX}{'='*60}{Style.RESET_ALL}")
         
         # 统计信息
         stats = self.todo_manager.get_stats()
-        output.append(f"\n{Fore.WHITE}📊 统计: {Style.RESET_ALL}")
+        output.append(f"\n{Fore.WHITE}统计: {Style.RESET_ALL}")
         output.append(f"   总计: {stats['total']} | "
                      f"{Fore.YELLOW}待办: {stats['pending']}{Style.RESET_ALL} | "
                      f"{Fore.CYAN}进行中: {stats['in_progress']}{Style.RESET_ALL} | "
@@ -82,7 +82,7 @@ class TodoRenderer:
         root_todos.sort(key=lambda x: (status_order.get(x.status, 4), 
                                       priority_order.get(x.priority, 4)))
         
-        output.append(f"\n{Fore.WHITE}📝 任务列表:{Style.RESET_ALL}")
+        output.append(f"\n{Fore.WHITE}任务列表:{Style.RESET_ALL}")
         
         # 渲染每个根级任务
         for i, todo in enumerate(root_todos, 1):
@@ -124,7 +124,7 @@ class TodoRenderer:
         
         # 添加描述（如果有）
         if todo.description:
-            output += f"\n{indent}   {Fore.LIGHTBLACK_EX}💬 {todo.description}{Style.RESET_ALL}"
+            output += f"\n{indent}   {Fore.LIGHTBLACK_EX}{todo.description}{Style.RESET_ALL}"
         
         # 添加子任务数量
         if todo.subtasks:
@@ -132,7 +132,7 @@ class TodoRenderer:
             completed_subtasks = len([sid for sid in todo.subtasks 
                                     if sid in self.todo_manager.todos and 
                                     self.todo_manager.todos[sid].status == 'completed'])
-            output += f"\n{indent}   {Fore.LIGHTBLACK_EX}📁 子任务: {completed_subtasks}/{subtask_count}{Style.RESET_ALL}"
+            output += f"\n{indent}   {Fore.LIGHTBLACK_EX}子任务: {completed_subtasks}/{subtask_count}{Style.RESET_ALL}"
         
         return output
     
@@ -154,20 +154,20 @@ class TodoRenderer:
         stats = self.todo_manager.get_stats()
         
         if stats['total'] == 0:
-            return f"{Fore.LIGHTBLACK_EX}📋 暂无任务{Style.RESET_ALL}"
+            return f"{Fore.LIGHTBLACK_EX}暂无任务{Style.RESET_ALL}"
         
         # 获取当前进行中的任务
         current_tasks = [todo for todo in self.todo_manager.todos.values() 
                         if todo.status == 'in_progress']
         
         output = []
-        output.append(f"{Fore.CYAN}📋 任务概览:{Style.RESET_ALL}")
+        output.append(f"{Fore.CYAN}任务概览:{Style.RESET_ALL}")
         output.append(f"   {Fore.YELLOW}⏳ 待办: {stats['pending']}{Style.RESET_ALL} | "
                      f"{Fore.CYAN}🔄 进行中: {stats['in_progress']}{Style.RESET_ALL} | "
                      f"{Fore.GREEN}✅ 已完成: {stats['completed']}{Style.RESET_ALL}")
         
         if current_tasks:
-            output.append(f"\n{Fore.CYAN}🔄 当前任务:{Style.RESET_ALL}")
+            output.append(f"\n{Fore.CYAN}当前任务:{Style.RESET_ALL}")
             for task in current_tasks[:3]:  # 最多显示3个
                 progress = f" ({task.progress}%)" if task.progress > 0 else ""
                 output.append(f"   • {task.title}{progress}")
@@ -178,11 +178,11 @@ class TodoRenderer:
         """渲染TODO项目详情"""
         todo = self.todo_manager.get_todo(todo_id)
         if not todo:
-            return f"{Fore.RED}❌ 任务不存在: {todo_id}{Style.RESET_ALL}"
+            return f"{Fore.RED}任务不存在: {todo_id}{Style.RESET_ALL}"
         
         output = []
         output.append(f"\n{Fore.LIGHTCYAN_EX}{'='*50}{Style.RESET_ALL}")
-        output.append(f"{Fore.LIGHTCYAN_EX}📋 任务详情{Style.RESET_ALL}")
+        output.append(f"{Fore.LIGHTCYAN_EX}任务详情{Style.RESET_ALL}")
         output.append(f"{Fore.LIGHTCYAN_EX}{'='*50}{Style.RESET_ALL}")
         
         # 基本信息
@@ -190,24 +190,24 @@ class TodoRenderer:
         status_color = self.status_colors.get(todo.status, Fore.WHITE)
         priority_icon = self.priority_icons.get(todo.priority, '⚪')
         
-        output.append(f"\n{Fore.WHITE}📝 标题:{Style.RESET_ALL} {status_icon} {todo.title}")
-        output.append(f"{Fore.WHITE}🏷️  状态:{Style.RESET_ALL} {status_color}{todo.status}{Style.RESET_ALL}")
-        output.append(f"{Fore.WHITE}⭐ 优先级:{Style.RESET_ALL} {priority_icon} {todo.priority}")
+        output.append(f"\n{Fore.WHITE}标题:{Style.RESET_ALL} {status_icon} {todo.title}")
+        output.append(f"{Fore.WHITE}状态:{Style.RESET_ALL} {status_color}{todo.status}{Style.RESET_ALL}")
+        output.append(f"{Fore.WHITE}优先级:{Style.RESET_ALL} {priority_icon} {todo.priority}")
         
         if todo.description:
-            output.append(f"{Fore.WHITE}💬 描述:{Style.RESET_ALL} {todo.description}")
+            output.append(f"{Fore.WHITE}描述:{Style.RESET_ALL} {todo.description}")
         
         if todo.progress > 0:
             progress_bar = self._render_progress_bar(todo.progress)
-            output.append(f"{Fore.WHITE}📊 进度:{Style.RESET_ALL} {progress_bar}")
+            output.append(f"{Fore.WHITE}进度:{Style.RESET_ALL} {progress_bar}")
         
         # 时间信息
-        output.append(f"{Fore.WHITE}🕐 创建时间:{Style.RESET_ALL} {todo.created_at[:19]}")
-        output.append(f"{Fore.WHITE}🕑 更新时间:{Style.RESET_ALL} {todo.updated_at[:19]}")
+        output.append(f"{Fore.WHITE}创建时间:{Style.RESET_ALL} {todo.created_at[:19]}")
+        output.append(f"{Fore.WHITE}更新时间:{Style.RESET_ALL} {todo.updated_at[:19]}")
         
         # 子任务
         if todo.subtasks:
-            output.append(f"\n{Fore.WHITE}📁 子任务 ({len(todo.subtasks)}):{Style.RESET_ALL}")
+            output.append(f"\n{Fore.WHITE}子任务 ({len(todo.subtasks)}):{Style.RESET_ALL}")
             for subtask_id in todo.subtasks:
                 subtask = self.todo_manager.get_todo(subtask_id)
                 if subtask:

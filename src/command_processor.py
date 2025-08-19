@@ -10,6 +10,7 @@ from .modes import mode_manager
 from .ui import print_welcome_screen, print_input_box
 from .ai_client import ai_client
 from .ai_tools import ai_tool_processor
+from .output_monitor import start_output_monitoring, stop_output_monitoring, enable_print_monitoring
 
 def process_ai_conversation(user_input):
     """处理AI对话"""
@@ -21,28 +22,107 @@ def process_ai_conversation(user_input):
 
     print(f"{Fore.CYAN}🤖 AI助手正在处理您的请求...{Style.RESET_ALL}")
 
+    # 启用输出监控
+    enable_print_monitoring()
+
+    # 自动恢复标志和计数器
+    auto_recovery_triggered = False
+    recovery_count = 0
+    max_recoveries = 3
+
+    def on_output_timeout():
+        """输出超时时的自动恢复回调"""
+        nonlocal auto_recovery_triggered, recovery_count
+        if recovery_count < max_recoveries:
+            recovery_count += 1
+            auto_recovery_triggered = True
+            print(f"{Fore.YELLOW}🔄 自动恢复 ({recovery_count}/{max_recoveries})...{Style.RESET_ALL}")
+        else:
+            print(f"{Fore.RED}⚠️ 已达到最大恢复次数 ({max_recoveries})，停止自动恢复{Style.RESET_ALL}")
+            stop_output_monitoring()
+
     # 发送消息给AI
     ai_response = ai_client.send_message(user_input)
 
-    # 处理AI响应和工具调用
-    while True:
-        result = ai_tool_processor.process_response(ai_response)
+    # 处理AI响应和工具调用，添加循环计数器防止无限循环
+    max_iterations = 20  # 最大迭代次数
+    iteration_count = 0
 
-        # 显示AI的意图（过滤XML）
-        if result['display_text'].strip():
-            print(f"\n{Fore.GREEN}🤖 AI: {result['display_text']}{Style.RESET_ALL}")
+    try:
+        # 启动输出监控
+        start_output_monitoring(on_output_timeout, timeout_seconds=15)
 
-        # 如果有工具调用，显示结果
-        if result['has_tool'] and result['tool_result']:
-            print(f"{Fore.YELLOW}📋 执行结果: {result['tool_result']}{Style.RESET_ALL}")
+        while iteration_count < max_iterations:
+            iteration_count += 1
 
-        # 如果需要继续（有工具调用且未完成），继续对话
-        if result['should_continue']:
-            print(f"\n{Fore.CYAN}🤖 AI继续处理...{Style.RESET_ALL}")
-            # 将工具执行结果发送回AI
-            ai_response = ai_client.send_message(f"工具执行结果: {result['tool_result']}", include_structure=False)
-        else:
-            break
+            # 检查是否触发了自动恢复
+            if auto_recovery_triggered:
+                print(f"{Fore.YELLOW}🔄 执行自动恢复 ({recovery_count}/{max_recoveries})...{Style.RESET_ALL}")
+
+                # 根据恢复次数选择不同的恢复策略
+                if recovery_count == 1:
+                    recovery_message = "检测到可能的卡死情况。请继续完成当前任务，如果遇到问题请分析并解决。"
+                elif recovery_count == 2:
+                    recovery_message = "再次检测到无响应。请检查当前状态，如果有错误请修复，然后继续任务。"
+                else:
+                    recovery_message = "多次检测到无响应。请总结当前进度，如果任务已完成请使用task_complete结束。"
+
+                ai_response = ai_client.send_message(recovery_message, include_structure=False)
+                auto_recovery_triggered = False
+
+                # 如果恢复失败，停止处理
+                if not ai_response or any(error_keyword in ai_response.lower() for error_keyword in
+                                        ['超时', 'timeout', '网络错误', '发生错误']):
+                    print(f"{Fore.RED}⚠️ 自动恢复失败，停止处理{Style.RESET_ALL}")
+                    break
+
+            result = ai_tool_processor.process_response(ai_response)
+
+            # 显示AI的意图（过滤XML）
+            if result['display_text'].strip():
+                print(f"\n{Fore.GREEN}🤖 AI: {result['display_text']}{Style.RESET_ALL}")
+
+            # 如果有工具调用，显示结果
+            if result['has_tool'] and result['tool_result']:
+                print(f"{Fore.YELLOW}📋 执行结果: {result['tool_result']}{Style.RESET_ALL}")
+
+            # 如果需要继续（有工具调用且未完成），继续对话
+            if result['should_continue']:
+                print(f"\n{Fore.CYAN}🤖 AI继续处理... (步骤 {iteration_count}/{max_iterations}){Style.RESET_ALL}")
+
+                # 构建更详细的反馈信息给AI
+                feedback_message = f"工具执行结果: {result['tool_result']}"
+
+                # 如果是错误结果，添加更多上下文
+                if result['tool_result'] and any(error_keyword in result['tool_result'].lower() for error_keyword in
+                                               ['失败', '错误', 'error', 'failed', '异常', 'exception']):
+                    feedback_message += "\n\n请分析错误原因并尝试修复。"
+
+                # 将工具执行结果发送回AI
+                ai_response = ai_client.send_message(feedback_message, include_structure=False)
+
+                # 检查AI响应是否为错误信息（可能是网络问题或超时）
+                if ai_response and any(error_keyword in ai_response.lower() for error_keyword in
+                                     ['超时', 'timeout', '网络错误', '发生错误', '任务已被用户中断']):
+                    print(f"\n{Fore.RED}⚠️ AI处理出现问题: {ai_response}{Style.RESET_ALL}")
+                    break
+            else:
+                break
+
+    except KeyboardInterrupt:
+        print(f"\n{Fore.YELLOW}⚠️ 用户中断了处理流程{Style.RESET_ALL}")
+    except Exception as e:
+        print(f"\n{Fore.RED}⚠️ 处理过程中出现异常: {str(e)}{Style.RESET_ALL}")
+    finally:
+        # 确保停止输出监控
+        try:
+            stop_output_monitoring()
+        except:
+            pass
+
+    # 如果达到最大迭代次数，给出提示
+    if iteration_count >= max_iterations:
+        print(f"\n{Fore.YELLOW}⚠️ 已达到最大处理步骤数 ({max_iterations})，任务可能需要手动干预。{Style.RESET_ALL}")
 
     print()  # 空行分隔
 

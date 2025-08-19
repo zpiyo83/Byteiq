@@ -162,10 +162,9 @@ def process_ai_conversation(user_input):
         print(f"\n{Fore.YELLOW}任务已被用户中断{Style.RESET_ALL}")
         return
 
-    # 处理AI响应和工具调用（添加循环计数器和重复检测）
-    max_iterations = 15  # 最大迭代次数
+    # 处理AI响应和工具调用（添加循环计数器防止无限循环）
+    max_iterations = 10  # 最大迭代次数
     iteration_count = 0
-    recent_operations = []  # 记录最近的操作，用于检测重复
     
     while True:
         # 检查是否被中断
@@ -180,19 +179,6 @@ def process_ai_conversation(user_input):
             
         result = ai_tool_processor.process_response(ai_response)
 
-        # 检测重复操作
-        current_operation = result['display_text'].strip()
-        if current_operation:
-            recent_operations.append(current_operation)
-            # 只保留最近5次操作
-            if len(recent_operations) > 5:
-                recent_operations.pop(0)
-
-            # 检查是否有重复操作（最近3次都是相同操作）
-            if len(recent_operations) >= 3 and len(set(recent_operations[-3:])) == 1:
-                print(f"\n{Fore.RED}检测到重复操作，停止处理避免无限循环{Style.RESET_ALL}")
-                break
-
         # 显示AI的意图（过滤XML）
         if result['display_text'].strip():
             print(f"\n{Fore.GREEN}AI: {result['display_text']}{Style.RESET_ALL}")
@@ -201,37 +187,17 @@ def process_ai_conversation(user_input):
         if result['has_tool'] and result['tool_result']:
             print(f"{Fore.YELLOW}执行结果: {result['tool_result']}{Style.RESET_ALL}")
 
-        # 智能停止条件检查
-        should_stop = False
-
-        # 1. 如果AI明确表示完成
-        if not result['should_continue']:
-            should_stop = True
-
-        # 2. 如果没有工具调用且响应很短，可能已完成
-        elif not result['has_tool'] and len(result['display_text'].strip()) < 50:
-            should_stop = True
-
-        # 3. 如果工具执行失败且AI没有明确继续意图
-        elif result['tool_result'] and '失败' in result['tool_result'] and '继续' not in result['display_text']:
-            should_stop = True
-
-        if should_stop:
-            print(f"\n{Fore.GREEN}任务处理完成{Style.RESET_ALL}")
-            break
-
-        # 如果需要继续，继续对话
-        if result['should_continue'] and result['has_tool']:
+        # 如果需要继续（有工具调用且未完成），继续对话
+        if result['should_continue']:
             print(f"\n{Fore.CYAN}AI继续处理... (第{iteration_count}次){Style.RESET_ALL}")
             # 将工具执行结果发送回AI
             ai_response = ai_client.send_message(f"工具执行结果: {result['tool_result']}", include_structure=False)
-
+            
             # 检查继续处理时是否被中断
             if is_task_interrupted():
                 print(f"\n{Fore.YELLOW}任务处理已被用户中断{Style.RESET_ALL}")
                 break
         else:
-            print(f"\n{Fore.GREEN}任务处理完成{Style.RESET_ALL}")
             break
 
     print()  # 空行分隔
@@ -325,27 +291,8 @@ def main():
                 # 显示输入框
                 print_input_box()
 
-                # 获取用户输入（安全版本）
-                try:
-                    user_input = input(f"{Fore.WHITE}> {Style.RESET_ALL}").strip()
-                except EOFError:
-                    # 处理EOF错误（比如Ctrl+Z或管道输入结束）
-                    try:
-                        print(f"\n{Fore.CYAN}检测到输入结束，程序退出{Style.RESET_ALL}")
-                    except Exception:
-                        import sys
-                        sys.__stdout__.write("\n检测到输入结束，程序退出\n")
-                        sys.__stdout__.flush()
-                    break
-                except KeyboardInterrupt:
-                    # 处理Ctrl+C
-                    try:
-                        print(f"\n{Fore.YELLOW}使用 /exit 退出程序{Style.RESET_ALL}")
-                    except Exception:
-                        import sys
-                        sys.__stdout__.write("\n使用 /exit 退出程序\n")
-                        sys.__stdout__.flush()
-                    continue
+                # 获取用户输入
+                user_input = input(f"{Fore.WHITE}> {Style.RESET_ALL}").strip()
 
                 # 检查空输入
                 if not user_input:
@@ -362,48 +309,18 @@ def main():
                 process_ai_conversation(user_input)
 
             except KeyboardInterrupt:
-                try:
-                    print(f"\n{Fore.YELLOW}使用 /exit 退出程序{Style.RESET_ALL}")
-                except Exception:
-                    # 如果colorama出错，使用基本输出
-                    import sys
-                    sys.__stdout__.write("\n使用 /exit 退出程序\n")
-                    sys.__stdout__.flush()
+                print(f"\n{Fore.YELLOW}使用 /exit 退出程序{Style.RESET_ALL}")
                 continue
             except EOFError:
-                try:
-                    print(f"\n{Fore.CYAN}再见！{Style.RESET_ALL}")
-                except Exception:
-                    # 如果colorama出错，使用基本输出
-                    import sys
-                    sys.__stdout__.write("\n再见！\n")
-                    sys.__stdout__.flush()
+                print(f"\n{Fore.CYAN}再见！{Style.RESET_ALL}")
                 break
 
     except Exception as e:
-        try:
-            print(f"{Fore.RED}程序发生错误: {e}{Style.RESET_ALL}")
-        except Exception:
-            # 如果colorama出错，使用基本输出
-            import sys
-            sys.__stdout__.write(f"程序发生错误: {e}\n")
-            sys.__stdout__.flush()
+        print(f"{Fore.RED}程序发生错误: {e}{Style.RESET_ALL}")
     finally:
         # 清理资源
-        try:
-            stop_thinking()
-            stop_task_monitoring()
-        except Exception:
-            pass
+        stop_thinking()
+        stop_task_monitoring()
 
 if __name__ == "__main__":
-    try:
-        main()
-    except Exception as e:
-        # 最后的异常处理
-        try:
-            print(f"程序启动失败: {e}")
-        except Exception:
-            import sys
-            sys.__stdout__.write(f"程序启动失败: {e}\n")
-            sys.__stdout__.flush()
+    main()

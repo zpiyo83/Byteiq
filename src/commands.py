@@ -72,18 +72,18 @@ def show_help():
   {Fore.WHITE}/todo{Style.RESET_ALL}     - TODO任务管理菜单
 
 {Fore.CYAN}AI工具能力:{Style.RESET_ALL}
-  {Fore.YELLOW}📖 读取文件{Style.RESET_ALL}     - AI可以读取项目文件
-  {Fore.YELLOW}✏️  写入文件{Style.RESET_ALL}     - AI可以创建和修改文件
-  {Fore.YELLOW}⚡ 执行命令{Style.RESET_ALL}     - AI可以执行系统命令
-  {Fore.YELLOW}📋 任务管理{Style.RESET_ALL}     - AI可以创建和管理TODO任务
-  {Fore.YELLOW}🎯 项目感知{Style.RESET_ALL}     - AI自动了解项目结构
+  {Fore.YELLOW}读取文件{Style.RESET_ALL}     - AI可以读取项目文件
+  {Fore.YELLOW}写入文件{Style.RESET_ALL}     - AI可以创建和修改文件
+  {Fore.YELLOW}执行命令{Style.RESET_ALL}     - AI可以执行系统命令
+  {Fore.YELLOW}任务管理{Style.RESET_ALL}     - AI可以创建和管理TODO任务
+  {Fore.YELLOW}项目感知{Style.RESET_ALL}     - AI自动了解项目结构
 
 {Fore.CYAN}工作模式:{Style.RESET_ALL}
   {Fore.YELLOW}Ask{Style.RESET_ALL}            - 询问模式（标准问答交互）
   {Fore.YELLOW}mostly accepted{Style.RESET_ALL} - 大部分接受模式（快速确认建议）
   {Fore.YELLOW}sprint{Style.RESET_ALL}         - 冲刺模式（快速开发迭代）
 
-{Fore.GREEN}💡 使用提示: 直接输入您的需求，AI会自动帮您完成编程任务！{Style.RESET_ALL}
+{Fore.GREEN}使用提示: 直接输入您的需求，AI会自动帮您完成编程任务！{Style.RESET_ALL}
 """
     print(help_text)
 
@@ -120,7 +120,7 @@ def handle_todo_command():
     todo_renderer = get_todo_renderer(todo_manager)
 
     while True:
-        print(f"\n{Fore.LIGHTCYAN_EX}📋 TODO任务管理{Style.RESET_ALL}")
+        print(f"\n{Fore.LIGHTCYAN_EX}TODO任务管理{Style.RESET_ALL}")
         print(f"{Fore.CYAN}请选择操作:{Style.RESET_ALL}")
         print(f"  1 - 显示任务列表")
         print(f"  2 - 添加新任务")
@@ -144,7 +144,7 @@ def handle_todo_command():
             delete_todo_interactive()
         elif choice == "5":
             todo_manager.clear_completed()
-            print(f"{Fore.GREEN}✅ 已清除所有已完成的任务{Style.RESET_ALL}")
+            print(f"{Fore.GREEN}已清除所有已完成的任务{Style.RESET_ALL}")
         elif choice == "6":
             show_todo_stats()
         else:
@@ -155,7 +155,7 @@ def handle_todo_command():
 
 def add_todo_interactive():
     """交互式添加TODO"""
-    print(f"\n{Fore.CYAN}📝 添加新任务{Style.RESET_ALL}")
+    print(f"\n{Fore.CYAN}添加新任务{Style.RESET_ALL}")
 
     title = input(f"任务标题: ").strip()
     if not title:
@@ -175,11 +175,11 @@ def add_todo_interactive():
     priority = priority_map.get(priority_choice, "medium")
 
     todo_id = todo_manager.add_todo(title, description, priority)
-    print(f"{Fore.GREEN}✅ 成功添加任务: {title} (ID: {todo_id[:8]}){Style.RESET_ALL}")
+    print(f"{Fore.GREEN}成功添加任务: {title} (ID: {todo_id[:8]}){Style.RESET_ALL}")
 
 def update_todo_interactive():
     """交互式更新TODO"""
-    print(f"\n{Fore.CYAN}🔄 更新任务状态{Style.RESET_ALL}")
+    print(f"\n{Fore.CYAN}更新任务状态{Style.RESET_ALL}")
 
     # 显示当前任务
     todos = todo_manager.get_root_todos()
@@ -237,13 +237,13 @@ def update_todo_interactive():
 
     success = todo_manager.update_todo(todo_id, status=new_status, progress=progress)
     if success:
-        print(f"{Fore.GREEN}✅ 成功更新任务状态{Style.RESET_ALL}")
+        print(f"{Fore.GREEN}成功更新任务状态{Style.RESET_ALL}")
     else:
-        print(f"{Fore.RED}❌ 更新任务失败{Style.RESET_ALL}")
+        print(f"{Fore.RED}更新任务失败{Style.RESET_ALL}")
 
 def delete_todo_interactive():
     """交互式删除TODO"""
-    print(f"\n{Fore.CYAN}🗑️  删除任务{Style.RESET_ALL}")
+    print(f"\n{Fore.CYAN}删除任务{Style.RESET_ALL}")
 
     todos = todo_manager.get_root_todos()
     if not todos:
@@ -277,9 +277,9 @@ def delete_todo_interactive():
     if confirm == 'y':
         success = todo_manager.delete_todo(todo_id)
         if success:
-            print(f"{Fore.GREEN}✅ 成功删除任务{Style.RESET_ALL}")
+            print(f"{Fore.GREEN}成功删除任务{Style.RESET_ALL}")
         else:
-            print(f"{Fore.RED}❌ 删除任务失败{Style.RESET_ALL}")
+            print(f"{Fore.RED}删除任务失败{Style.RESET_ALL}")
     else:
         print(f"{Fore.YELLOW}已取消删除{Style.RESET_ALL}")
 
@@ -288,7 +288,7 @@ def show_todo_stats():
     stats = todo_manager.get_stats()
     todo_renderer = get_todo_renderer(todo_manager)
 
-    print(f"\n{Fore.LIGHTCYAN_EX}📊 TODO统计信息{Style.RESET_ALL}")
+    print(f"\n{Fore.LIGHTCYAN_EX}TODO统计信息{Style.RESET_ALL}")
     print(f"总任务数: {stats['total']}")
     print(f"待办任务: {Fore.YELLOW}{stats['pending']}{Style.RESET_ALL}")
     print(f"进行中: {Fore.CYAN}{stats['in_progress']}{Style.RESET_ALL}")

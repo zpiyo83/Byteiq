@@ -134,5 +134,29 @@
     "created_at": "2025-08-19T13:12:15.917193",
     "updated_at": "2025-08-19T13:12:15.917198",
     "progress": 0
+  },
+  {
+    "id": "a5a29f28-5db5-4cb6-94a0-1da2d03a12a7",
+    "title": "创建贪吃蛇游戏",
+    "description": "主任务：开发一个贪吃蛇游戏。",
+    "status": "in_progress",
+    "priority": "high",
+    "parent_id": null,
+    "subtasks": [],
+    "created_at": "2025-08-19T16:54:36.591091",
+    "updated_at": "2025-08-19T16:55:41.261596",
+    "progress": 20
+  },
+  {
+    "id": "4652f0ae-8219-4a7c-8911-202d046358a7",
+    "title": "创建 hello world 程序",
+    "description": "创建一个简单的 Python 程序，输出 \"Hello, World!\"。",
+    "status": "pending",
+    "priority": "high",
+    "parent_id": null,
+    "subtasks": [],
+    "created_at": "2025-08-19T17:18:18.951460",
+    "updated_at": "2025-08-19T17:18:18.951465",
+    "progress": 0
   }
 ]
