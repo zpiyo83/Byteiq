@@ -1,0 +1,14 @@
+[
+  {
+    "id": "9db3f151-b2ae-4828-ac58-ca401899c7c6",
+    "title": "创建 test.py 文件",
+    "description": "根据用户之前的命令，需要创建一个名为 test.py 的文件，以便后续执行。目前文件不存在，导致执行失败。",
+    "status": "pending",
+    "priority": "1",
+    "parent_id": null,
+    "subtasks": [],
+    "created_at": "2025-08-20T18:44:06.955691",
+    "updated_at": "2025-08-20T18:44:06.955697",
+    "progress": 0
+  }
+]

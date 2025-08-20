@@ -147,7 +147,7 @@ def process_ai_conversation(user_input):
         return
 
     # 处理AI响应和工具调用（添加循环计数器和重复检测）
-    max_iterations = 15  # 最大迭代次数
+    max_iterations = 50  # 🚨 最大迭代次数提升到50次
     iteration_count = 0
     recent_operations = []  # 记录最近的操作，用于检测重复
     
@@ -185,29 +185,15 @@ def process_ai_conversation(user_input):
         if result['has_tool'] and result['tool_result']:
             print(f"{Fore.YELLOW}执行结果: {result['tool_result']}{Style.RESET_ALL}")
 
-        # 智能停止条件检查
-        should_stop = False
-
-        # 1. 如果AI明确表示完成
+        # 🚨 简化停止条件检查 - 只有should_continue=False才能停止
         if not result['should_continue']:
-            should_stop = True
-
-        # 2. 如果没有工具调用且响应很短，可能已完成
-        elif not result['has_tool'] and len(result['display_text'].strip()) < 50:
-            should_stop = True
-
-        # 3. 如果工具执行失败且AI没有明确继续意图
-        elif result['tool_result'] and '失败' in result['tool_result'] and '继续' not in result['display_text']:
-            should_stop = True
-
-        if should_stop:
             print(f"\n{Fore.GREEN}任务处理完成{Style.RESET_ALL}")
             break
 
-        # 如果需要继续，继续对话
-        if result['should_continue'] and result['has_tool']:
+        # 🚨 如果需要继续，继续对话（包括工具执行失败的情况）
+        if result['has_tool']:
             print(f"\n{Fore.CYAN}AI继续处理... (第{iteration_count}次){Style.RESET_ALL}")
-            # 将工具执行结果发送回AI
+            # 将工具执行结果发送回AI，包括错误信息
             ai_response = ai_client.send_message(f"工具执行结果: {result['tool_result']}", include_structure=False)
 
             # 检查继续处理时是否被中断
@@ -215,8 +201,14 @@ def process_ai_conversation(user_input):
                 print(f"\n{Fore.YELLOW}任务处理已被用户中断{Style.RESET_ALL}")
                 break
         else:
-            print(f"\n{Fore.GREEN}任务处理完成{Style.RESET_ALL}")
-            break
+            # 没有工具调用的情况，也要检查是否应该继续
+            if result['should_continue']:
+                print(f"\n{Fore.CYAN}AI继续处理... (第{iteration_count}次){Style.RESET_ALL}")
+                # 发送一个继续的提示
+                ai_response = ai_client.send_message("请继续完成任务。", include_structure=False)
+            else:
+                print(f"\n{Fore.GREEN}任务处理完成{Style.RESET_ALL}")
+                break
 
     print()  # 空行分隔
 

@@ -17,6 +17,48 @@ from .keyboard_handler import (
 )
 from .output_monitor import start_output_monitoring, stop_output_monitoring, enable_print_monitoring
 from .config import load_config, DEFAULT_API_URL
+from .debug_config import is_raw_output_enabled
+
+def format_ai_response(raw_response, api_result=None):
+    """
+    根据调试配置格式化AI响应
+
+    Args:
+        raw_response (str): AI的原始响应内容
+        api_result (dict, optional): 完整的API响应结果
+
+    Returns:
+        str: 格式化后的响应内容
+    """
+    if is_raw_output_enabled():
+        # 原始输出模式：显示完整的未经处理的数据
+        output_lines = []
+        output_lines.append("=" * 80)
+        output_lines.append("🔧 原始输出模式 - 调试信息")
+        output_lines.append("=" * 80)
+
+        if api_result:
+            output_lines.append("\n📡 完整API响应:")
+            output_lines.append("-" * 40)
+            import json
+            try:
+                formatted_json = json.dumps(api_result, indent=2, ensure_ascii=False)
+                output_lines.append(formatted_json)
+            except:
+                output_lines.append(str(api_result))
+
+        output_lines.append("\n💬 AI原始响应内容:")
+        output_lines.append("-" * 40)
+        output_lines.append(raw_response)
+
+        output_lines.append("\n" + "=" * 80)
+        output_lines.append("🔧 原始输出模式结束")
+        output_lines.append("=" * 80)
+
+        return "\n".join(output_lines)
+    else:
+        # 正常模式：返回渲染后的用户友好内容
+        return raw_response
 
 def timeout_protection(timeout_seconds=90):
     """超时保护装饰器"""
@@ -233,7 +275,8 @@ class AIClient:
                         if len(self.conversation_history) > 10:
                             self.conversation_history = self.conversation_history[-10:]
 
-                        return ai_response
+                        # 根据调试配置格式化响应
+                        return format_ai_response(ai_response, result)
                     else:
                         return f"API响应格式错误: {result}"
 
@@ -305,16 +348,17 @@ class AIClient:
             if response.status_code == 200:
                 result = response.json()
                 ai_response = result['choices'][0]['message']['content']
-                
+
                 # 保存对话历史
                 self.conversation_history.append({"role": "user", "content": user_input})
                 self.conversation_history.append({"role": "assistant", "content": ai_response})
-                
+
                 # 限制历史长度
                 if len(self.conversation_history) > 20:
                     self.conversation_history = self.conversation_history[-20:]
-                
-                return ai_response
+
+                # 根据调试配置格式化响应
+                return format_ai_response(ai_response, result)
             else:
                 return f"API请求失败: {response.status_code} - {response.text}"
                 

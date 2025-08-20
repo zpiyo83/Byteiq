@@ -1,0 +1,49 @@
+include README.md
+include LICENSE
+include requirements.txt
+include VERSION.md
+include CHANGELOG.md
+include pyproject.toml
+include setup.py
+include forgeai.py
+
+# 包含所有源代码文件
+recursive-include src *.py
+recursive-include src *.json
+recursive-include src *.md
+recursive-include src *.txt
+
+# 包含文档文件
+recursive-include docs *.md
+recursive-include docs *.rst
+recursive-include docs *.txt
+
+# 包含实现说明文档
+include TOOL_LIMITS_IMPLEMENTATION.md
+include DELETE_FILE_TOOL_IMPLEMENTATION.md
+include RAW_OUTPUT_GUIDE.md
+
+# 排除不需要的文件
+global-exclude *.pyc
+global-exclude *.pyo
+global-exclude *.pyd
+global-exclude __pycache__
+global-exclude .git*
+global-exclude .DS_Store
+global-exclude *.so
+global-exclude .pytest_cache
+global-exclude .coverage
+global-exclude htmlcov
+global-exclude .tox
+global-exclude .venv
+global-exclude venv
+global-exclude env
+global-exclude build
+global-exclude dist
+global-exclude *.egg-info
+global-exclude .mypy_cache
+global-exclude .idea
+global-exclude .vscode
+global-exclude *.swp
+global-exclude *.swo
+global-exclude *~

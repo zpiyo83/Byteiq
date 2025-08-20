@@ -45,7 +45,7 @@ class ModeManager:
             return True
 
         # 写入/执行工具的权限控制
-        write_execute_tools = ['write_file', 'create_file', 'insert_code', 'replace_code', 'execute_command', 'add_todo', 'update_todo']
+        write_execute_tools = ['write_file', 'create_file', 'insert_code', 'replace_code', 'execute_command', 'add_todo', 'update_todo', 'delete_file']
 
         if tool_name in write_execute_tools:
             if self.current_mode == "Ask":

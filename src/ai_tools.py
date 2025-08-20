@@ -24,6 +24,7 @@ class AIToolProcessor:
             'add_todo': self.add_todo,
             'update_todo': self.update_todo,
             'show_todos': self.show_todos,
+            'delete_file': self.delete_file,
             'task_complete': self.task_complete
         }
         self.todo_renderer = get_todo_renderer(todo_manager)
@@ -41,15 +42,29 @@ class AIToolProcessor:
             'add_todo': r'<add_todo><title>(.*?)</title><description>(.*?)</description><priority>(.*?)</priority></add_todo>',
             'update_todo': r'<update_todo><id>(.*?)</id><status>(.*?)</status><progress>(.*?)</progress></update_todo>',
             'show_todos': r'<show_todos></show_todos>',
+            'delete_file': r'<delete_file><path>(.*?)</path></delete_file>',
             'task_complete': r'<task_complete><summary>(.*?)</summary></task_complete>'
         }
         
         tool_found = False
         tool_result = ""
         display_text = ai_response
-        
+        tools_found = []
+
+        # 🚨 第一步：检查是否有多个工具调用（单工具限制）
         for tool_name, pattern in tool_patterns.items():
             matches = re.findall(pattern, ai_response, re.DOTALL)
+            if matches:
+                tools_found.append((tool_name, matches))
+
+        # 如果发现多个工具，只执行第一个并警告
+        if len(tools_found) > 1:
+            tool_result = f"⚠️ 检测到多个工具调用，根据单工具限制，只执行第一个工具: {tools_found[0][0]}\n"
+            tool_result += f"被忽略的工具: {', '.join([t[0] for t in tools_found[1:]])}\n"
+            tool_result += "请在下次响应中单独调用其他工具。"
+            tools_found = [tools_found[0]]  # 只保留第一个工具
+
+        for tool_name, matches in tools_found:
             if matches:
                 tool_found = True
 
@@ -144,15 +159,15 @@ class AIToolProcessor:
         if not tool_found:
             display_text = self._remove_xml_tags(ai_response)
         
-        # 智能继续判断逻辑
+        # 🚨 强制继续判断逻辑 - 只有task_complete才能结束
         should_continue = False
         if tool_found:
-            # 明确的停止条件
+            # 🚨 唯一的停止条件：task_complete工具调用
             if 'task_complete' in ai_response:
                 should_continue = False
             else:
-                # 根据模式和工具结果决定是否继续
-                should_continue = self._should_continue_based_on_context(tool_name, tool_result, ai_response)
+                # 🚨 其他所有情况都必须继续，包括工具执行失败
+                should_continue = True
 
         return {
             'has_tool': tool_found,
@@ -223,6 +238,49 @@ class AIToolProcessor:
             return f"成功创建文件 {path}"
         except Exception as e:
             return f"创建文件失败: {str(e)}"
+
+    def delete_file(self, path):
+        """删除文件工具"""
+        try:
+            # 检查文件是否存在
+            if not os.path.exists(path):
+                return f"❌ 错误：文件 {path} 不存在，无法删除"
+
+            # 检查是否是文件（不是目录）
+            if not os.path.isfile(path):
+                return f"❌ 错误：{path} 不是文件，无法删除"
+
+            # 显示删除预览
+            file_size = os.path.getsize(path)
+            print(f"\n{Fore.RED}🗑️ 删除文件: {path}{Style.RESET_ALL}")
+            print("=" * 60)
+            print(f"{Fore.YELLOW}⚠️ 警告：此操作将永久删除文件{Style.RESET_ALL}")
+            print(f"📁 文件路径: {path}")
+            print(f"📊 文件大小: {file_size} 字节")
+
+            # 显示文件内容预览（前3行）
+            try:
+                with open(path, 'r', encoding='utf-8') as f:
+                    lines = f.readlines()
+                    preview_lines = lines[:3]
+                    print(f"{Fore.CYAN}📄 文件内容预览:{Style.RESET_ALL}")
+                    for i, line in enumerate(preview_lines, 1):
+                        print(f"  {i:3d}: {line.rstrip()}")
+                    if len(lines) > 3:
+                        print(f"  ... (还有 {len(lines) - 3} 行)")
+            except:
+                print(f"{Fore.CYAN}📄 文件内容: 无法预览（可能是二进制文件）{Style.RESET_ALL}")
+
+            print("=" * 60)
+
+            # 执行删除
+            os.remove(path)
+
+            print(f"{Fore.GREEN}✅ 文件已成功删除{Style.RESET_ALL}")
+            return f"成功删除文件 {path}"
+
+        except Exception as e:
+            return f"删除文件失败: {str(e)}"
 
     def insert_code(self, path, line_number, content):
         """插入代码工具"""
@@ -386,49 +444,64 @@ class AIToolProcessor:
                 return False
 
     def _execute_tool_with_matches(self, tool_name, matches):
-        """执行工具并返回结果和显示文本"""
-        if tool_name in ['write_file', 'create_file']:
-            path, content = matches[0]
-            tool_result = self.tools[tool_name](path.strip(), content.strip())
-            action = "创建文件" if tool_name == 'create_file' else "写入文件"
-            # 不再显示内容预览，因为工具内部已经显示了可视化预览
-            display_text = f"{action} {path.strip()}"
-        elif tool_name == 'insert_code':
-            path, line, content = matches[0]
-            tool_result = self.tools[tool_name](path.strip(), int(line.strip()), content.strip())
-            # 不再显示详细内容，因为工具内部已经显示了可视化预览
-            display_text = f"插入代码到 {path.strip()} 第{line.strip()}行"
-        elif tool_name == 'replace_code':
-            path, start_line, end_line, content = matches[0]
-            tool_result = self.tools[tool_name](path.strip(), int(start_line.strip()), int(end_line.strip()), content.strip())
-            # 不再显示详细内容，因为工具内部已经显示了可视化预览
-            display_text = f"替换 {path.strip()} 第{start_line.strip()}-{end_line.strip()}行代码"
-        elif tool_name == 'read_file':
-            path = matches[0].strip()
-            tool_result = self.tools[tool_name](path)
-            display_text = f"读取文件 {path}"
-        elif tool_name == 'execute_command':
-            command = matches[0].strip()
-            tool_result = self.tools[tool_name](command)
-            display_text = f"执行命令: {command}"
-        elif tool_name == 'add_todo':
-            title, description, priority = matches[0]
-            tool_result = self.tools[tool_name](title.strip(), description.strip(), priority.strip())
-            display_text = f"添加任务: {title.strip()}"
-        elif tool_name == 'update_todo':
-            todo_id, status, progress = matches[0]
-            tool_result = self.tools[tool_name](todo_id.strip(), status.strip(), int(progress.strip()) if progress.strip().isdigit() else 0)
-            display_text = f"更新任务: {todo_id.strip()}"
-        elif tool_name == 'show_todos':
-            tool_result = self.tools[tool_name]()
-            display_text = "显示任务列表"
-        elif tool_name == 'task_complete':
-            summary = matches[0].strip()
-            tool_result = self.tools[tool_name](summary)
-            display_text = f"任务完成: {summary}"
-        else:
-            tool_result = "未知工具"
-            display_text = f"未知工具: {tool_name}"
+        """执行工具并返回结果和显示文本（带错误处理）"""
+        try:
+            if tool_name in ['write_file', 'create_file']:
+                path, content = matches[0]
+                tool_result = self.tools[tool_name](path.strip(), content.strip())
+                action = "创建文件" if tool_name == 'create_file' else "写入文件"
+                display_text = f"{action} {path.strip()}"
+            elif tool_name == 'insert_code':
+                path, line, content = matches[0]
+                tool_result = self.tools[tool_name](path.strip(), int(line.strip()), content.strip())
+                display_text = f"插入代码到 {path.strip()} 第{line.strip()}行"
+            elif tool_name == 'replace_code':
+                path, start_line, end_line, content = matches[0]
+                tool_result = self.tools[tool_name](path.strip(), int(start_line.strip()), int(end_line.strip()), content.strip())
+                display_text = f"替换 {path.strip()} 第{start_line.strip()}-{end_line.strip()}行代码"
+            elif tool_name == 'read_file':
+                path = matches[0].strip()
+                tool_result = self.tools[tool_name](path)
+                display_text = f"读取文件 {path}"
+            elif tool_name == 'execute_command':
+                command = matches[0].strip()
+                tool_result = self.tools[tool_name](command)
+                display_text = f"执行命令: {command}"
+            elif tool_name == 'add_todo':
+                title, description, priority = matches[0]
+                tool_result = self.tools[tool_name](title.strip(), description.strip(), priority.strip())
+                display_text = f"添加任务: {title.strip()}"
+            elif tool_name == 'update_todo':
+                todo_id, status, progress = matches[0]
+                tool_result = self.tools[tool_name](todo_id.strip(), status.strip(), int(progress.strip()) if progress.strip().isdigit() else 0)
+                display_text = f"更新任务: {todo_id.strip()}"
+            elif tool_name == 'show_todos':
+                tool_result = self.tools[tool_name]()
+                display_text = "显示任务列表"
+            elif tool_name == 'delete_file':
+                path = matches[0].strip()
+                tool_result = self.tools[tool_name](path)
+                display_text = f"删除文件 {path}"
+            elif tool_name == 'task_complete':
+                summary = matches[0].strip()
+                tool_result = self.tools[tool_name](summary)
+                display_text = f"任务完成: {summary}"
+            else:
+                tool_result = "未知工具"
+                display_text = f"未知工具: {tool_name}"
+
+        except Exception as e:
+            # 🚨 工具执行失败时的处理
+            error_msg = str(e)
+            tool_result = f"❌ 工具执行失败: {error_msg}\n"
+            tool_result += f"🔧 请分析错误原因并重新尝试。根据单工具限制，请在下次响应中修复此问题。"
+            display_text = f"❌ {tool_name} 执行失败: {error_msg}"
+
+            # 记录详细错误信息用于调试
+            print(f"{Fore.RED}工具执行错误详情:{Style.RESET_ALL}")
+            print(f"  工具: {tool_name}")
+            print(f"  参数: {matches}")
+            print(f"  错误: {error_msg}")
 
         return tool_result, display_text
 

@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "forge-ai-code"
-version = "1.2.6"
-description = "智能AI编程助手 - 支持多种AI模型的自适应提示词系统"
+version = "1.2.7"
+description = "智能AI编程助手 - 支持多种AI模型的自适应提示词系统，新增删除文件工具和工具调用限制"
 readme = "README.md"
 license = {text = "MIT"}
 authors = [

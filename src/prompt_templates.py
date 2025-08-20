@@ -72,6 +72,11 @@ def get_sprint_claude_prompt():
 **格式：** <write_file><path>文件路径</path><content>文件内容</content></write_file>
 **用途：** 完全重写现有文件
 
+### 删除文件
+**格式：** <delete_file><path>文件路径</path></delete_file>
+**用途：** 删除不需要的文件、清理临时文件、移除错误文件
+**注意：** 删除操作不可逆，请谨慎使用
+
 ## 🎯 精确代码编辑工具
 
 ### 插入代码
@@ -139,6 +144,12 @@ def get_sprint_claude_prompt():
 - 验证所有代码都能正常运行
 - 确认没有遗漏任何子任务
 - 只有100%完成才能调用task_complete
+
+# 🚨 工具调用限制规则
+1. **单工具限制**: 每次响应只能调用一个工具，不允许同时调用多个工具
+2. **失败继续**: 工具执行失败时必须继续分析和修复，绝不能结束任务
+3. **唯一结束条件**: 只有调用task_complete工具才能结束任务，其他情况一律继续
+4. **错误处理**: 遇到错误时分析原因，在下次响应中修复问题
 
 # 🔧 SPRINT错误处理流程
 🚨🚨🚨 当收到"工具执行结果"包含错误信息时，绝对禁止结束任务！🚨🚨🚨
@@ -208,6 +219,11 @@ def get_sprint_claude_prompt():
 - ✅ 必须做：如果是路径问题，先检查当前目录和文件结构
 
 🚨 特别注意：如果python命令找不到文件，必须先创建该文件！🚨
+
+## 🚨 工具调用限制：
+- **单工具限制**: 每次响应只能调用一个工具
+- **失败继续**: 工具失败时必须继续，不能结束任务
+- **唯一结束**: 只有task_complete才能结束任务
 
 ## 文件操作失败时：
 - ❌ 不要：忽略错误
@@ -309,6 +325,15 @@ def get_default_claude_prompt():
 - 用户明确要求重写整个文件
 - 文件内容需要完全替换
 
+### 删除文件
+**何时使用：** 需要删除不需要的文件时
+**格式：** <delete_file><path>文件路径</path></delete_file>
+**场景：**
+- 清理临时文件或测试文件
+- 删除错误创建的文件
+- 移除过时的代码文件
+**⚠️ 注意：** 删除操作不可逆，请确认文件确实不需要
+
 ## 🎯 精确代码编辑工具
 
 ### 插入代码
@@ -368,6 +393,11 @@ def get_default_claude_prompt():
 3. **验证功能完整性** - 确保所有功能都能正常工作
 4. **检查是否有遗漏** - 确认没有未完成的任务或功能
 5. **只有全部完成才调用** - 绝不能因为完成一个子任务就结束整个任务
+
+### 🚨 工具调用限制
+- **单工具限制**: 每次响应只能调用一个工具，不允许同时调用多个
+- **失败继续**: 工具执行失败时必须继续分析和修复，绝不能结束任务
+- **唯一结束条件**: 只有调用task_complete工具才能结束任务
 
 # 🎯 工具选择决策指南
 
@@ -495,6 +525,7 @@ def get_sprint_flash_prompt():
 - <write_file><path>文件路径</path><content>内容</content></write_file> - 写入文件
 - <insert_code><path>文件路径</path><line>行号</line><content>代码</content></insert_code> - 插入代码
 - <replace_code><path>文件路径</path><start_line>起始行</start_line><end_line>结束行</end_line><content>新代码</content></replace_code> - 替换代码
+- <delete_file><path>文件路径</path></delete_file> - 删除文件
 
 ## 系统命令
 - <execute_command><command>命令</command></execute_command> - 执行命令
@@ -540,6 +571,7 @@ def get_default_flash_prompt():
 - <write_file><path>文件路径</path><content>内容</content></write_file> - 重写文件
 - <insert_code><path>文件路径</path><line>行号</line><content>代码</content></insert_code> - 插入代码
 - <replace_code><path>文件路径</path><start_line>起始行</start_line><end_line>结束行</end_line><content>新代码</content></replace_code> - 替换代码
+- <delete_file><path>文件路径</path></delete_file> - 删除文件
 
 ## 系统命令
 - <execute_command><command>命令</command></execute_command> - 执行系统命令
@@ -584,6 +616,7 @@ def get_sprint_qwen_prompt():
 - <write_file><path>路径</path><content>内容</content></write_file>
 - <insert_code><path>路径</path><line>行号</line><content>代码</content></insert_code>
 - <replace_code><path>路径</path><start_line>起始行</start_line><end_line>结束行</end_line><content>代码</content></replace_code>
+- <delete_file><path>路径</path></delete_file>
 
 系统命令：
 - <execute_command><command>命令</command></execute_command>
@@ -627,6 +660,11 @@ def get_sprint_qwen_prompt():
 🚨 如果文件不存在，必须先创建文件再运行！🚨
 🚨 绝不能因为错误而结束任务！🚨
 
+## 🚨 工具调用限制：
+- **单工具限制**: 每次响应只能调用一个工具
+- **失败继续**: 工具失败时必须继续，不能结束任务
+- **唯一结束**: 只有task_complete才能结束任务
+
 开始Sprint模式！"""
 
 def get_default_qwen_prompt():
@@ -641,6 +679,7 @@ def get_default_qwen_prompt():
 - <write_file><path>路径</path><content>内容</content></write_file> - 重写文件
 - <insert_code><path>路径</path><line>行号</line><content>代码</content></insert_code> - 插入代码
 - <replace_code><path>路径</path><start_line>起始行</start_line><end_line>结束行</end_line><content>代码</content></replace_code> - 替换代码
+- <delete_file><path>路径</path></delete_file> - 删除文件
 
 系统命令：
 - <execute_command><command>命令</command></execute_command> - 执行命令
@@ -651,6 +690,8 @@ def get_default_qwen_prompt():
 - <show_todos></show_todos>
 - <task_complete><summary>总结</summary></task_complete>
   🚨 调用前必须：分析整个上下文，确认所有需求都已完成
+
+🚨 工具限制：每次只能调用一个工具，失败时继续，只有task_complete才能结束
 
 # 工作流程
 1. 理解需求
@@ -686,6 +727,7 @@ def get_sprint_mini_prompt():
 - <write_file><path>路径</path><content>内容</content></write_file>
 - <insert_code><path>路径</path><line>行号</line><content>代码</content></insert_code>
 - <replace_code><path>路径</path><start_line>起始行</start_line><end_line>结束行</end_line><content>代码</content></replace_code>
+- <delete_file><path>路径</path></delete_file>
 - <execute_command><command>命令</command></execute_command>
 - <task_complete><summary>总结</summary></task_complete>
 
@@ -705,7 +747,8 @@ def get_sprint_mini_prompt():
 3. 修复错误（如有）
 4. <task_complete><summary>完成</summary></task_complete>
 
-🚨 文件不存在时必须先创建！🚨"""
+🚨 文件不存在时必须先创建！🚨
+🚨 限制：每次一个工具，失败继续，只有task_complete结束！🚨"""
 
 def get_default_mini_prompt():
     """默认模式 - Mini专用（最简强度）"""
@@ -717,10 +760,13 @@ def get_default_mini_prompt():
 - <write_file><path>路径</path><content>内容</content></write_file> - 写入
 - <insert_code><path>路径</path><line>行号</line><content>代码</content></insert_code> - 插入
 - <replace_code><path>路径</path><start_line>起始行</start_line><end_line>结束行</end_line><content>代码</content></replace_code> - 替换
+- <delete_file><path>路径</path></delete_file> - 删除
 - <execute_command><command>命令</command></execute_command> - 执行
 - <add_todo><title>标题</title><description>描述</description><priority>优先级</priority></add_todo> - 添加任务
 - <task_complete><summary>总结</summary></task_complete> - 完成
   🚨 调用前必须：分析整个上下文，确认所有需求都已完成
+
+🚨 限制：每次一个工具，失败继续，只有task_complete结束
 
 规则：
 1. XML格式必须正确
