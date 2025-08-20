@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "forge-ai-code"
-version = "1.1.0"
-description = "智能AI编程助手 - 通过自然语言对话进行编程开发"
+version = "1.2.6"
+description = "智能AI编程助手 - 支持多种AI模型的自适应提示词系统"
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
@@ -15,8 +15,9 @@ maintainers = [
     {name = "Forge AI Team", email = "support@forgeai.dev"}
 ]
 keywords = [
-    "ai", "artificial-intelligence", "coding", "programming", 
-    "assistant", "automation", "development", "cli", "tool"
+    "ai", "artificial-intelligence", "coding", "programming",
+    "assistant", "automation", "development", "cli", "tool",
+    "prompt-engineering", "multi-model", "adaptive"
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -59,12 +60,13 @@ Repository = "https://github.com/forge-ai/forge-ai-code"
 Changelog = "https://github.com/forge-ai/forge-ai-code/blob/main/VERSION.md"
 
 [project.scripts]
-forge-ai-code = "main:main"
-fac = "main:main"
+forge-ai-code = "forgeai:main"
+fac = "forgeai:main"
 
 [tool.setuptools]
 packages = ["src"]
 include-package-data = true
+py-modules = ["forgeai"]
 
 [tool.setuptools.package-data]
 "*" = ["*.md", "*.txt", "*.json"]

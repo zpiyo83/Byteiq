@@ -1,8 +1,16 @@
-# 🚀 Forge AI Code 分发指南
+# 🚀 Forge AI Code 分发指南 v1.2.6
 
 ## 📦 发布包位置
 
 **可用的发布包：** `forge_ai_code_pip/`
+
+包含文件：
+- `forge_ai_code-1.2.6-py3-none-any.whl` - Wheel包（推荐）
+- `forge_ai_code-1.2.6.tar.gz` - 源码包
+
+## 🌐 PyPI发布状态
+
+**✅ 已成功发布到PyPI**: https://pypi.org/project/forge-ai-code/1.2.6/
 
 ## 🎯 用户安装体验
 
@@ -10,8 +18,29 @@
 # 用户只需要一个命令
 pip install forge-ai-code
 
-# 立即使用
+# 立即使用（两种命令都可以）
 forge-ai-code
+fac  # 简短命令
+```
+
+## ✨ v1.2.6 新功能
+
+### 🎯 多模型提示词强度系统
+- **Claude专用** - 完整强度，适合Claude系列模型
+- **Flash专用** - 缩减强度，适合快速响应模型
+- **Qwen Coder专用** - 保留关键细节，适合代码专用模型
+- **Mini专用** - 最简强度，适合轻量模型
+
+### ⚙️ 使用方法
+```bash
+# 启动程序
+forge-ai-code
+
+# 进入设置
+> /s
+
+# 选择"4 - 设置提示词强度"
+# 根据使用的AI模型选择合适的强度级别
 ```
 
 ## 📋 发布到PyPI

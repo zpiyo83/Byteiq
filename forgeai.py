@@ -111,25 +111,9 @@ def set_model_interactive():
 
 def show_settings():
     """显示设置菜单"""
-    while True:
-        print(f"\n{Fore.LIGHTCYAN_EX}Forge AI Code 设置{Style.RESET_ALL}")
-        print(f"  1 - 设置语言")
-        print(f"  2 - 设置API密钥")
-        print(f"  3 - 设置模型")
-        print(f"  4 - 退出设置")
-
-        choice = input(f"\n{Fore.WHITE}请输入选项 (1-4) > {Style.RESET_ALL}").strip()
-
-        if choice == "1":
-            set_language_interactive()
-        elif choice == "2":
-            set_api_key_interactive()
-        elif choice == "3":
-            set_model_interactive()
-        elif choice == "4":
-            break
-        else:
-            print(f"{Fore.RED}无效选项，请重新选择{Style.RESET_ALL}")
+    # 使用统一的配置管理系统
+    from src.config import show_settings as config_show_settings
+    config_show_settings()
 
 # ========== AI功能 ==========
 # 使用统一的AI客户端（包含新功能：思考动画、ESC中断）

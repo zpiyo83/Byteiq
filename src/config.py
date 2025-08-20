@@ -93,7 +93,7 @@ def set_model_interactive():
     """交互式设置AI模型"""
     cfg = load_config()
     current_model = cfg.get("model", "gpt-3.5-turbo")
-    
+
     print(f"\n{Fore.CYAN}AI模型设置{Style.RESET_ALL}")
     print(f"当前模型: {current_model}")
     print(f"\n{Fore.CYAN}常用模型示例:{Style.RESET_ALL}")
@@ -101,9 +101,9 @@ def set_model_interactive():
     print(f"  claude-3-haiku, claude-3-sonnet, claude-3-opus")
     print(f"  gemini-pro, llama2-70b, 等...")
     print(f"\n{Fore.YELLOW}提示: 直接输入模型名称，回车保持不变{Style.RESET_ALL}")
-    
+
     new_model = input(f"\n{Fore.WHITE}请输入模型名称 > {Style.RESET_ALL}").strip()
-    
+
     if new_model:
         cfg["model"] = new_model
         if save_config(cfg):
@@ -113,6 +113,46 @@ def set_model_interactive():
     else:
         print(f"{Fore.CYAN}AI模型设置未修改{Style.RESET_ALL}")
 
+def set_prompt_strength_interactive():
+    """交互式设置提示词强度"""
+    cfg = load_config()
+    current_strength = cfg.get("prompt_strength", "claude")
+
+    print(f"\n{Fore.CYAN}提示词强度设置{Style.RESET_ALL}")
+    print(f"当前强度: {current_strength}")
+    print(f"\n{Fore.CYAN}可选强度级别:{Style.RESET_ALL}")
+    print(f"  1 - claude   (Claude模型专用 - 完整强度)")
+    print(f"  2 - flash    (Flash模型专用 - 缩减强度)")
+    print(f"  3 - qwen     (Qwen Coder专用 - 保留关键细节)")
+    print(f"  4 - mini     (Mini模型专用 - 最简强度)")
+    print(f"  回车 - 保持不变")
+
+    print(f"\n{Fore.YELLOW}说明:{Style.RESET_ALL}")
+    print(f"  • Claude: 适用于Claude系列模型，提示词最详细完整")
+    print(f"  • Flash: 适用于Flash等快速模型，提示词适度缩减")
+    print(f"  • Qwen: 适用于Qwen Coder等代码模型，保留关键编程细节")
+    print(f"  • Mini: 适用于Mini/Nano/Lite等轻量模型，提示词最简化")
+
+    choice = input(f"\n{Fore.WHITE}请选择强度级别 (1-4) > {Style.RESET_ALL}").strip()
+
+    strength_map = {
+        "1": "claude",
+        "2": "flash",
+        "3": "qwen",
+        "4": "mini"
+    }
+
+    if choice in strength_map:
+        cfg["prompt_strength"] = strength_map[choice]
+        if save_config(cfg):
+            print(f"{Fore.GREEN}✓ 提示词强度已保存: {strength_map[choice]}{Style.RESET_ALL}")
+        else:
+            print(f"{Fore.RED}✗ 提示词强度保存失败{Style.RESET_ALL}")
+    elif choice == "":
+        print(f"{Fore.CYAN}提示词强度设置未修改{Style.RESET_ALL}")
+    else:
+        print(f"{Fore.YELLOW}无效选择{Style.RESET_ALL}")
+
 def show_settings():
     """显示设置菜单"""
     while True:
@@ -120,22 +160,25 @@ def show_settings():
         api_key_status = "已设置 ********" if cfg.get("api_key") else "未设置"
         language_status = cfg.get("language", "zh-CN")
         model_status = cfg.get("model", "gpt-3.5-turbo")
-        
+        prompt_strength_status = cfg.get("prompt_strength", "claude")
+
         print(f"\n{Fore.LIGHTCYAN_EX}Forge AI Code 设置{Style.RESET_ALL}")
-        print(f"{'='*50}")
+        print(f"{'='*60}")
         print(f"API Key: {api_key_status}")
         print(f"语言: {language_status}")
         print(f"AI模型: {model_status}")
+        print(f"提示词强度: {prompt_strength_status}")
         print(f"配置文件: {CONFIG_PATH}")
-        print(f"{'='*50}")
+        print(f"{'='*60}")
         print(f"\n{Fore.CYAN}请选择操作:{Style.RESET_ALL}")
         print(f"  1 - 设置语言")
         print(f"  2 - 设置API密钥")
         print(f"  3 - 设置模型")
-        print(f"  4 - 退出设置")
-        
-        choice = input(f"\n{Fore.WHITE}请输入选项 (1-4) > {Style.RESET_ALL}").strip()
-        
+        print(f"  4 - 设置提示词强度")
+        print(f"  5 - 退出设置")
+
+        choice = input(f"\n{Fore.WHITE}请输入选项 (1-5) > {Style.RESET_ALL}").strip()
+
         if choice == "1":
             set_language_interactive()
         elif choice == "2":
@@ -143,8 +186,10 @@ def show_settings():
         elif choice == "3":
             set_model_interactive()
         elif choice == "4":
+            set_prompt_strength_interactive()
+        elif choice == "5":
             print(f"{Fore.CYAN}退出设置{Style.RESET_ALL}")
             break
         else:
-            print(f"{Fore.YELLOW}无效选择，请输入 1-4{Style.RESET_ALL}")
+            print(f"{Fore.YELLOW}无效选择，请输入 1-5{Style.RESET_ALL}")
             input(f"{Fore.CYAN}按回车继续...{Style.RESET_ALL}")
