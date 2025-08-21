@@ -13,7 +13,7 @@ with open("requirements.txt", "r", encoding="utf-8") as fh:
 
 setup(
     name="forge-ai-code",
-    version="1.2.8",
+    version='1.3.0',
     author="Forge AI Team",
     author_email="support@forgeai.dev",
     description="智能AI编程助手 - 支持多种AI模型的自适应提示词系统，新增删除文件工具和工具调用限制",
