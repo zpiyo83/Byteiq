@@ -88,7 +88,7 @@ def print_welcome_screen():
     # 不在欢迎界面显示输入框，让主循环统一处理
 
 def print_input_box():
-    """打印输入框，并保存起始光标位置以便后续精确定位"""
+    """打印输入框"""
     gray = Fore.LIGHTBLACK_EX  # 灰色
 
     # 输入框宽度
@@ -103,18 +103,13 @@ def print_input_box():
     # 输入框底部边框（圆角，灰色）
     print(f"{gray}╰{'─' * (input_box_width - 2)}╯{Style.RESET_ALL}")
 
-    # 保存当前光标位置（作为输入框左上角参考点）
-    # 放在输入框之后，以便正确定位到输入位置
-    print('\033[s', end='', flush=True)
-
     # 当前模式提示文字（灰色）
     from src.modes import mode_manager
     current_mode = mode_manager.get_current_mode()
     print(f"{gray}? {current_mode}{Style.RESET_ALL}")
 
 def position_cursor_for_input():
-    """恢复到输入框起点，再相对移动到内容行内的提示符位置"""
-    # 恢复到 print_input_box 保存的位置（输入框左上角）
-    print('\033[u', end='', flush=True)
-    # 下移1行到内容行，右移2列到竖线内侧（考虑到边框和提示符位置）
-    print('\033[1B\033[2C', end='', flush=True)
+    """定位光标到输入框内"""
+    # 由于终端兼容性问题，我们简化实现
+    # 直接在输入框下方显示提示符
+    pass

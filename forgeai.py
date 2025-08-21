@@ -630,12 +630,9 @@ def main():
                 # 显示输入框
                 print_input_box()
 
-                # 定位光标到输入框内
-                position_cursor_for_input()
-
                 # 获取用户输入（安全版本）
                 try:
-                    user_input = input("").strip()
+                    user_input = input(f"{Fore.WHITE}> {Style.RESET_ALL}").strip()
                 except EOFError:
                     # 处理EOF错误（比如Ctrl+Z或管道输入结束）
                     try:
