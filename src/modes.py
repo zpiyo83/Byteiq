@@ -39,10 +39,19 @@ class ModeManager:
     def can_auto_execute(self, tool_name):
         """检查当前模式是否可以自动执行指定工具"""
         # 只读工具（所有模式都可以自动执行）
-        read_only_tools = ['read_file', 'show_todos', 'task_complete']
+        read_only_tools = ['read_file', 'show_todos', 'task_complete', 'mcp_list_tools', 'mcp_list_resources', 'mcp_server_status', 'mcp_read_resource']
 
         if tool_name in read_only_tools:
             return True
+
+        # MCP搜索工具（Ask模式需要确认，其他模式自动执行）
+        mcp_search_tools = ['mcp_call_tool']
+
+        if tool_name in mcp_search_tools:
+            if self.current_mode == "Ask":
+                return "confirm"  # Ask模式需要确认
+            else:
+                return True  # 其他模式自动执行
 
         # 写入/执行工具的权限控制
         write_execute_tools = ['write_file', 'create_file', 'insert_code', 'replace_code', 'execute_command', 'add_todo', 'update_todo', 'delete_file']

@@ -97,6 +97,23 @@ def get_sprint_claude_prompt():
 - <show_todos></show_todos>
 - <task_complete><summary>任务总结</summary></task_complete>
 
+## 🔧 MCP (Model Context Protocol) 工具
+
+### 调用MCP工具
+**何时使用：** 需要使用外部MCP服务提供的专业工具时
+**格式：** <mcp_call_tool><tool>工具名称</tool><arguments>{"参数": "值"}</arguments></mcp_call_tool>
+**场景：**
+- 网络搜索（通过search工具）
+- 文件系统操作（通过filesystem服务）
+- 数据库查询（通过postgres/sqlite服务）
+- GitHub操作（通过github服务）
+
+### 其他MCP工具
+- <mcp_read_resource><uri>资源URI</uri></mcp_read_resource> - 读取MCP资源
+- <mcp_list_tools></mcp_list_tools> - 列出可用MCP工具
+- <mcp_list_resources></mcp_list_resources> - 列出可用MCP资源
+- <mcp_server_status></mcp_server_status> - 查看MCP服务器状态
+
 # 🚀 SPRINT模式工作流程
 
 ## 1. 立即开始 - 不要犹豫！
@@ -394,6 +411,37 @@ def get_default_claude_prompt():
 4. **检查是否有遗漏** - 确认没有未完成的任务或功能
 5. **只有全部完成才调用** - 绝不能因为完成一个子任务就结束整个任务
 
+## 🔧 MCP (Model Context Protocol) 工具
+
+### 调用MCP工具
+**何时使用：** 需要使用外部MCP服务提供的专业工具时
+**格式：** <mcp_call_tool><tool>工具名称</tool><arguments>{"参数": "值"}</arguments></mcp_call_tool>
+**场景：**
+- 文件系统操作（通过filesystem服务）
+- 网络搜索（通过brave-search服务）
+- 数据库查询（通过postgres/sqlite服务）
+- 网页自动化（通过puppeteer服务）
+
+### 读取MCP资源
+**何时使用：** 需要访问MCP服务提供的资源时
+**格式：** <mcp_read_resource><uri>资源URI</uri></mcp_read_resource>
+**场景：**
+- 读取配置文件
+- 获取数据库schema
+- 访问API文档
+
+### 列出MCP工具
+**何时使用：** 需要查看当前可用的MCP工具时
+**格式：** <mcp_list_tools></mcp_list_tools>
+
+### 列出MCP资源
+**何时使用：** 需要查看当前可用的MCP资源时
+**格式：** <mcp_list_resources></mcp_list_resources>
+
+### 查看MCP服务器状态
+**何时使用：** 需要检查MCP服务器运行状态时
+**格式：** <mcp_server_status></mcp_server_status>
+
 ### 🚨 工具调用限制
 - **单工具限制**: 每次响应只能调用一个工具，不允许同时调用多个
 - **失败继续**: 工具执行失败时必须继续分析和修复，绝不能结束任务
@@ -536,6 +584,13 @@ def get_sprint_flash_prompt():
 - <show_todos></show_todos>
 - <task_complete><summary>总结</summary></task_complete>
 
+## MCP工具
+- <mcp_call_tool><tool>工具名</tool><arguments>{"参数": "值"}</arguments></mcp_call_tool> - 调用MCP工具
+- <mcp_read_resource><uri>资源URI</uri></mcp_read_resource> - 读取MCP资源
+- <mcp_list_tools></mcp_list_tools> - 列出MCP工具
+- <mcp_list_resources></mcp_list_resources> - 列出MCP资源
+- <mcp_server_status></mcp_server_status> - 查看MCP状态
+
 # 🚀 工作流程
 1. 立即开始 - 收到需求立即执行
 2. 创建文件 - 实现所需功能
@@ -584,6 +639,13 @@ def get_default_flash_prompt():
 - <task_complete><summary>总结</summary></task_complete> - 完成任务
   🚨 调用前必须：分析整个上下文，确认所有需求都已完成
 
+## MCP工具
+- <mcp_call_tool><tool>工具名</tool><arguments>{"参数": "值"}</arguments></mcp_call_tool> - 调用MCP工具
+- <mcp_read_resource><uri>资源URI</uri></mcp_read_resource> - 读取MCP资源
+- <mcp_list_tools></mcp_list_tools> - 列出MCP工具
+- <mcp_list_resources></mcp_list_resources> - 列出MCP资源
+- <mcp_server_status></mcp_server_status> - 查看MCP状态
+
 # 📋 工作流程
 1. 理解需求 - 分析用户要求
 2. 规划任务 - 创建TODO任务规划
@@ -627,6 +689,13 @@ def get_sprint_qwen_prompt():
 - <show_todos></show_todos>
 - <task_complete><summary>总结</summary></task_complete>
   🚨 调用前必须：分析整个上下文，确认所有需求都已完成
+
+MCP工具：
+- <mcp_call_tool><tool>工具名</tool><arguments>{"参数": "值"}</arguments></mcp_call_tool>
+- <mcp_read_resource><uri>资源URI</uri></mcp_read_resource>
+- <mcp_list_tools></mcp_list_tools>
+- <mcp_list_resources></mcp_list_resources>
+- <mcp_server_status></mcp_server_status>
 
 # Sprint工作流程
 1. 收到需求立即开始
@@ -691,6 +760,13 @@ def get_default_qwen_prompt():
 - <task_complete><summary>总结</summary></task_complete>
   🚨 调用前必须：分析整个上下文，确认所有需求都已完成
 
+MCP工具：
+- <mcp_call_tool><tool>工具名</tool><arguments>{"参数": "值"}</arguments></mcp_call_tool>
+- <mcp_read_resource><uri>资源URI</uri></mcp_read_resource>
+- <mcp_list_tools></mcp_list_tools>
+- <mcp_list_resources></mcp_list_resources>
+- <mcp_server_status></mcp_server_status>
+
 🚨 工具限制：每次只能调用一个工具，失败时继续，只有task_complete才能结束
 
 # 工作流程
@@ -729,6 +805,11 @@ def get_sprint_mini_prompt():
 - <replace_code><path>路径</path><start_line>起始行</start_line><end_line>结束行</end_line><content>代码</content></replace_code>
 - <delete_file><path>路径</path></delete_file>
 - <execute_command><command>命令</command></execute_command>
+- <mcp_call_tool><tool>工具名</tool><arguments>{"参数": "值"}</arguments></mcp_call_tool>
+- <mcp_read_resource><uri>资源URI</uri></mcp_read_resource>
+- <mcp_list_tools></mcp_list_tools>
+- <mcp_list_resources></mcp_list_resources>
+- <mcp_server_status></mcp_server_status>
 - <task_complete><summary>总结</summary></task_complete>
 
 规则：
@@ -763,6 +844,11 @@ def get_default_mini_prompt():
 - <delete_file><path>路径</path></delete_file> - 删除
 - <execute_command><command>命令</command></execute_command> - 执行
 - <add_todo><title>标题</title><description>描述</description><priority>优先级</priority></add_todo> - 添加任务
+- <mcp_call_tool><tool>工具名</tool><arguments>{"参数": "值"}</arguments></mcp_call_tool> - MCP工具
+- <mcp_read_resource><uri>资源URI</uri></mcp_read_resource> - MCP资源
+- <mcp_list_tools></mcp_list_tools> - 列出MCP工具
+- <mcp_list_resources></mcp_list_resources> - 列出MCP资源
+- <mcp_server_status></mcp_server_status> - MCP状态
 - <task_complete><summary>总结</summary></task_complete> - 完成
   🚨 调用前必须：分析整个上下文，确认所有需求都已完成
 

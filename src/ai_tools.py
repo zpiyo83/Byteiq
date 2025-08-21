@@ -5,10 +5,14 @@ AI工具系统 - 处理AI的工具调用
 import os
 import re
 import subprocess
+import json
+import asyncio
 from colorama import Fore, Style
 from .todo_manager import todo_manager
 from .todo_renderer import get_todo_renderer
 from .modes import mode_manager
+from .mcp_client import mcp_client
+from .mcp_config import mcp_config
 
 class AIToolProcessor:
     """AI工具处理器"""
@@ -25,6 +29,11 @@ class AIToolProcessor:
             'update_todo': self.update_todo,
             'show_todos': self.show_todos,
             'delete_file': self.delete_file,
+            'mcp_call_tool': self.mcp_call_tool,
+            'mcp_read_resource': self.mcp_read_resource,
+            'mcp_list_tools': self.mcp_list_tools,
+            'mcp_list_resources': self.mcp_list_resources,
+            'mcp_server_status': self.mcp_server_status,
             'task_complete': self.task_complete
         }
         self.todo_renderer = get_todo_renderer(todo_manager)
@@ -43,6 +52,11 @@ class AIToolProcessor:
             'update_todo': r'<update_todo><id>(.*?)</id><status>(.*?)</status><progress>(.*?)</progress></update_todo>',
             'show_todos': r'<show_todos></show_todos>',
             'delete_file': r'<delete_file><path>(.*?)</path></delete_file>',
+            'mcp_call_tool': r'<mcp_call_tool><tool>(.*?)</tool><arguments>(.*?)</arguments></mcp_call_tool>',
+            'mcp_read_resource': r'<mcp_read_resource><uri>(.*?)</uri></mcp_read_resource>',
+            'mcp_list_tools': r'<mcp_list_tools></mcp_list_tools>',
+            'mcp_list_resources': r'<mcp_list_resources></mcp_list_resources>',
+            'mcp_server_status': r'<mcp_server_status></mcp_server_status>',
             'task_complete': r'<task_complete><summary>(.*?)</summary></task_complete>'
         }
         
@@ -428,6 +442,205 @@ class AIToolProcessor:
         """任务完成工具"""
         return f"任务已完成: {summary}"
 
+    def mcp_call_tool(self, tool_name, arguments_json):
+        """调用MCP工具"""
+        try:
+            if not mcp_config.is_enabled():
+                return "❌ MCP功能未启用。请使用 /mcp 命令启用MCP功能。"
+
+            # 解析参数
+            try:
+                arguments = json.loads(arguments_json) if arguments_json.strip() else {}
+            except json.JSONDecodeError:
+                return f"❌ 参数格式错误，请使用有效的JSON格式: {arguments_json}"
+
+            print(f"\n{Fore.CYAN}🔧 调用MCP工具: {tool_name}{Style.RESET_ALL}")
+            print("=" * 60)
+            print(f"工具名称: {tool_name}")
+            print(f"参数: {json.dumps(arguments, ensure_ascii=False, indent=2)}")
+            print(f"{Fore.YELLOW}⏳ 正在搜索中，请稍候...{Style.RESET_ALL}")
+
+            # 异步调用MCP工具，添加超时处理
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                # 添加15秒超时
+                result = loop.run_until_complete(
+                    asyncio.wait_for(
+                        mcp_client.call_tool(tool_name, arguments),
+                        timeout=15.0
+                    )
+                )
+
+                if result:
+                    if "error" in result:
+                        print(f"{Fore.RED}❌ 工具调用失败: {result['error']}{Style.RESET_ALL}")
+                        return f"❌ MCP工具调用失败: {result['error']}"
+                    else:
+                        print(f"{Fore.GREEN}✅ 工具调用成功{Style.RESET_ALL}")
+
+                        # 格式化显示结果
+                        if "result" in result and "content" in result["result"]:
+                            content = result["result"]["content"]
+                            if isinstance(content, list) and len(content) > 0:
+                                text_content = content[0].get("text", "")
+                                print(f"{Fore.GREEN}搜索结果:{Style.RESET_ALL}")
+                                print(text_content)
+                                return f"✅ MCP搜索成功:\n{text_content}"
+
+                        # 如果格式不符合预期，显示原始结果
+                        result_str = json.dumps(result, ensure_ascii=False, indent=2)
+                        print(f"结果: {result_str}")
+                        return f"✅ MCP工具调用成功:\n{result_str}"
+                else:
+                    print(f"{Fore.RED}❌ 工具调用返回空结果{Style.RESET_ALL}")
+                    return f"❌ MCP工具 {tool_name} 调用失败或未找到"
+
+            except asyncio.TimeoutError:
+                print(f"{Fore.RED}❌ 工具调用超时（15秒）{Style.RESET_ALL}")
+                return f"❌ MCP工具调用超时，请检查网络连接或服务器状态"
+            except Exception as e:
+                print(f"{Fore.RED}❌ 工具调用异常: {str(e)}{Style.RESET_ALL}")
+                return f"❌ MCP工具调用异常: {str(e)}"
+            finally:
+                loop.close()
+
+        except Exception as e:
+            return f"❌ MCP工具调用异常: {str(e)}"
+
+    def mcp_read_resource(self, uri):
+        """读取MCP资源"""
+        try:
+            if not mcp_config.is_enabled():
+                return "❌ MCP功能未启用。请使用 /mcp 命令启用MCP功能。"
+
+            print(f"\n{Fore.CYAN}📄 读取MCP资源: {uri}{Style.RESET_ALL}")
+            print("=" * 60)
+
+            # 异步读取MCP资源
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                result = loop.run_until_complete(mcp_client.read_resource(uri))
+
+                if result:
+                    if "error" in result:
+                        print(f"{Fore.RED}❌ 资源读取失败: {result['error']}{Style.RESET_ALL}")
+                        return f"❌ MCP资源读取失败: {result['error']}"
+                    else:
+                        print(f"{Fore.GREEN}✅ 资源读取成功{Style.RESET_ALL}")
+                        content = result.get("contents", [])
+                        if content:
+                            for item in content:
+                                print(f"类型: {item.get('type', 'unknown')}")
+                                if item.get('type') == 'text':
+                                    print(f"内容: {item.get('text', '')[:500]}...")
+                        return f"✅ MCP资源读取成功:\n{json.dumps(result, ensure_ascii=False, indent=2)}"
+                else:
+                    return f"❌ MCP资源 {uri} 读取失败或未找到"
+            finally:
+                loop.close()
+
+        except Exception as e:
+            return f"❌ MCP资源读取异常: {str(e)}"
+
+    def mcp_list_tools(self):
+        """列出可用的MCP工具"""
+        try:
+            if not mcp_config.is_enabled():
+                return "❌ MCP功能未启用。请使用 /mcp 命令启用MCP功能。"
+
+            print(f"\n{Fore.CYAN}🔧 可用的MCP工具{Style.RESET_ALL}")
+            print("=" * 60)
+
+            tools = mcp_client.get_available_tools()
+
+            if not tools:
+                print(f"{Fore.YELLOW}没有可用的MCP工具{Style.RESET_ALL}")
+                return "没有可用的MCP工具。请检查MCP服务器是否正常运行。"
+
+            result_lines = []
+            for tool in tools:
+                print(f"{Fore.GREEN}工具: {tool.name}{Style.RESET_ALL}")
+                print(f"  服务器: {tool.server_name}")
+                print(f"  描述: {tool.description}")
+                print(f"  参数: {json.dumps(tool.input_schema, ensure_ascii=False, indent=2)}")
+                print()
+
+                result_lines.append(f"- {tool.name} ({tool.server_name}): {tool.description}")
+
+            return f"✅ 找到 {len(tools)} 个MCP工具:\n" + "\n".join(result_lines)
+
+        except Exception as e:
+            return f"❌ 列出MCP工具异常: {str(e)}"
+
+    def mcp_list_resources(self):
+        """列出可用的MCP资源"""
+        try:
+            if not mcp_config.is_enabled():
+                return "❌ MCP功能未启用。请使用 /mcp 命令启用MCP功能。"
+
+            print(f"\n{Fore.CYAN}📄 可用的MCP资源{Style.RESET_ALL}")
+            print("=" * 60)
+
+            resources = mcp_client.get_available_resources()
+
+            if not resources:
+                print(f"{Fore.YELLOW}没有可用的MCP资源{Style.RESET_ALL}")
+                return "没有可用的MCP资源。请检查MCP服务器是否正常运行。"
+
+            result_lines = []
+            for resource in resources:
+                print(f"{Fore.GREEN}资源: {resource.name}{Style.RESET_ALL}")
+                print(f"  服务器: {resource.server_name}")
+                print(f"  URI: {resource.uri}")
+                print(f"  描述: {resource.description}")
+                print(f"  类型: {resource.mime_type}")
+                print()
+
+                result_lines.append(f"- {resource.name} ({resource.server_name}): {resource.uri}")
+
+            return f"✅ 找到 {len(resources)} 个MCP资源:\n" + "\n".join(result_lines)
+
+        except Exception as e:
+            return f"❌ 列出MCP资源异常: {str(e)}"
+
+    def mcp_server_status(self):
+        """查看MCP服务器状态"""
+        try:
+            if not mcp_config.is_enabled():
+                return "❌ MCP功能未启用。请使用 /mcp 命令启用MCP功能。"
+
+            print(f"\n{Fore.CYAN}🖥️ MCP服务器状态{Style.RESET_ALL}")
+            print("=" * 60)
+
+            status = mcp_client.get_server_status()
+
+            if not status:
+                print(f"{Fore.YELLOW}没有配置的MCP服务器{Style.RESET_ALL}")
+                return "没有配置的MCP服务器。请使用 /mcp 命令配置MCP服务器。"
+
+            result_lines = []
+            for server_name, server_status in status.items():
+                status_color = Fore.GREEN if server_status == "运行中" else Fore.YELLOW
+                print(f"{status_color}服务器: {server_name} - {server_status}{Style.RESET_ALL}")
+                result_lines.append(f"- {server_name}: {server_status}")
+
+            # 显示工具和资源统计
+            tools_count = len(mcp_client.get_available_tools())
+            resources_count = len(mcp_client.get_available_resources())
+
+            print(f"\n{Fore.CYAN}统计信息:{Style.RESET_ALL}")
+            print(f"  可用工具: {tools_count}")
+            print(f"  可用资源: {resources_count}")
+
+            result_lines.append(f"\n统计: {tools_count} 个工具, {resources_count} 个资源")
+
+            return f"✅ MCP服务器状态:\n" + "\n".join(result_lines)
+
+        except Exception as e:
+            return f"❌ 查看MCP服务器状态异常: {str(e)}"
+
     def _ask_user_confirmation(self, action_description):
         """询问用户确认"""
         while True:
@@ -482,6 +695,23 @@ class AIToolProcessor:
                 path = matches[0].strip()
                 tool_result = self.tools[tool_name](path)
                 display_text = f"删除文件 {path}"
+            elif tool_name == 'mcp_call_tool':
+                tool_name_param, arguments_json = matches[0]
+                tool_result = self.tools[tool_name](tool_name_param.strip(), arguments_json.strip())
+                display_text = f"调用MCP工具: {tool_name_param.strip()}"
+            elif tool_name == 'mcp_read_resource':
+                uri = matches[0].strip()
+                tool_result = self.tools[tool_name](uri)
+                display_text = f"读取MCP资源: {uri}"
+            elif tool_name == 'mcp_list_tools':
+                tool_result = self.tools[tool_name]()
+                display_text = "列出MCP工具"
+            elif tool_name == 'mcp_list_resources':
+                tool_result = self.tools[tool_name]()
+                display_text = "列出MCP资源"
+            elif tool_name == 'mcp_server_status':
+                tool_result = self.tools[tool_name]()
+                display_text = "查看MCP服务器状态"
             elif tool_name == 'task_complete':
                 summary = matches[0].strip()
                 tool_result = self.tools[tool_name](summary)

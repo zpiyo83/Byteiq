@@ -10,5 +10,113 @@
     "created_at": "2025-08-20T18:44:06.955691",
     "updated_at": "2025-08-20T18:44:06.955697",
     "progress": 0
+  },
+  {
+    "id": "40e5329e-a768-412e-9834-32feaa4e349f",
+    "title": "分析AI编程助手搜索结果",
+    "description": "根据MCP工具返回的关于“AI 编程助手”的搜索结果，总结其定义、应用场景和最新发展。",
+    "status": "pending",
+    "priority": "High",
+    "parent_id": null,
+    "subtasks": [],
+    "created_at": "2025-08-20T22:03:22.886237",
+    "updated_at": "2025-08-20T22:03:22.886243",
+    "progress": 0
+  },
+  {
+    "id": "60af17db-3937-498f-aadd-71710305714b",
+    "title": "处理MCP服务器连接失败",
+    "description": "MCP服务器连接失败，需要检查网络连接或MCP服务状态。",
+    "status": "pending",
+    "priority": "HIGH",
+    "parent_id": null,
+    "subtasks": [],
+    "created_at": "2025-08-20T22:27:20.405849",
+    "updated_at": "2025-08-20T22:27:20.405855",
+    "progress": 0
+  },
+  {
+    "id": "b865a330-c304-4851-91f0-c0e4f1665d19",
+    "title": "检查MCP服务器连接问题",
+    "description": "MCP服务器显示运行中，但之前调用工具失败，需要进一步排查连接问题。",
+    "status": "pending",
+    "priority": "HIGH",
+    "parent_id": null,
+    "subtasks": [],
+    "created_at": "2025-08-20T22:27:26.145081",
+    "updated_at": "2025-08-20T22:27:26.145087",
+    "progress": 0
+  },
+  {
+    "id": "8444ac29-5c6e-4735-a005-a6a4ea8efeba",
+    "title": "尝试使用search工具",
+    "description": "已确认search工具可用，但之前调用失败，尝试使用该工具进行一次简单的搜索，以确认是否是特定查询或参数导致的问题。",
+    "status": "pending",
+    "priority": "HIGH",
+    "parent_id": null,
+    "subtasks": [],
+    "created_at": "2025-08-20T22:27:31.515767",
+    "updated_at": "2025-08-20T22:27:31.515772",
+    "progress": 0
+  },
+  {
+    "id": "1c6f52de-6078-4d6c-b2b2-d5443da57256",
+    "title": "再次检查MCP服务器连接",
+    "description": "即使是简单的搜索也失败了，并且报告了相同的连接错误。需要再次确认MCP服务器的可用性和网络连接。",
+    "status": "pending",
+    "priority": "HIGH",
+    "parent_id": null,
+    "subtasks": [],
+    "created_at": "2025-08-21T12:26:52.675132",
+    "updated_at": "2025-08-21T12:26:52.675138",
+    "progress": 0
+  },
+  {
+    "id": "7e543789-5e5d-4d4c-b22f-241d1b9aeace",
+    "title": "排查MCP连接问题-尝试不同工具",
+    "description": "MCP服务器显示运行中，但search工具持续失败。尝试调用另一个MCP工具，例如`list_resources`，以判断问题是普遍性的还是search工具特有的。",
+    "status": "pending",
+    "priority": "HIGH",
+    "parent_id": null,
+    "subtasks": [],
+    "created_at": "2025-08-21T12:26:55.870305",
+    "updated_at": "2025-08-21T12:26:55.870310",
+    "progress": 0
+  },
+  {
+    "id": "30904036-3036-47d3-b220-94fff548b406",
+    "title": "MCP服务器资源列表为空",
+    "description": "MCP服务器显示运行中，但`list_resources`工具返回“没有可用的MCP资源”。这可能意味着服务器虽然在运行，但没有正确加载或提供资源，或者`list_resources`工具本身存在问题。",
+    "status": "pending",
+    "priority": "HIGH",
+    "parent_id": null,
+    "subtasks": [],
+    "created_at": "2025-08-21T12:27:02.964375",
+    "updated_at": "2025-08-21T12:27:02.964381",
+    "progress": 0
+  },
+  {
+    "id": "6acd66ab-b8f2-44c5-aa0a-c4c8e24937a9",
+    "title": "尝试使用list_tools工具",
+    "description": "MCP服务器资源列表为空，但`list_tools`工具仍然显示`search`工具可用。这进一步表明问题可能出在MCP服务器提供的资源或服务接口上，而不是工具本身。尝试再次调用`list_tools`以确认其稳定性。",
+    "status": "pending",
+    "priority": "HIGH",
+    "parent_id": null,
+    "subtasks": [],
+    "created_at": "2025-08-21T12:27:06.698099",
+    "updated_at": "2025-08-21T12:27:06.698105",
+    "progress": 0
+  },
+  {
+    "id": "dfb47240-101b-4282-9cb6-dbf8c1b94307",
+    "title": "分析MCP工具和资源状态",
+    "description": "MCP服务器状态显示运行中，`list_tools`工具持续返回`search`工具可用，但`list_resources`工具返回无资源，并且`search`工具调用失败并报告连接错误。这可能表示MCP服务器配置不当，或者`search`工具依赖的底层服务出现问题。由于无法通过其他工具（如`list_resources`）获取更多信息，且`search`工具调用失败，目前无法继续有效的MCP交互。",
+    "status": "pending",
+    "priority": "HIGH",
+    "parent_id": null,
+    "subtasks": [],
+    "created_at": "2025-08-21T12:27:10.407200",
+    "updated_at": "2025-08-21T12:27:10.407206",
+    "progress": 0
   }
 ]

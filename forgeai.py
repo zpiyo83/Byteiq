@@ -238,12 +238,268 @@ def handle_special_commands(user_input):
         show_todos_command()
         return True
 
+    # MCP命令
+    if user_input.lower() in ['/mcp', '/m', '/model-context-protocol']:
+        handle_mcp_command()
+        return True
+
     # 退出命令
     if user_input.lower() in ['/exit', '/quit', '/q']:
         print(f"{Fore.CYAN}再见！感谢使用 Forge AI Code{Style.RESET_ALL}")
         return "exit"
 
     return False
+
+def handle_mcp_command():
+    """处理MCP命令"""
+    try:
+        from src.mcp_config import mcp_config
+        from src.mcp_client import mcp_client
+        import asyncio
+
+        print(f"\n{Fore.CYAN}🔧 MCP (Model Context Protocol) 管理{Style.RESET_ALL}")
+        print("=" * 60)
+
+        # 显示当前状态
+        mcp_config.show_config_summary()
+
+        print(f"\n{Fore.CYAN}MCP管理选项:{Style.RESET_ALL}")
+        print("  1 - 启用/禁用MCP")
+        print("  2 - 配置服务器")
+        print("  3 - 启动服务器")
+        print("  4 - 停止服务器")
+        print("  5 - 查看服务器状态")
+        print("  6 - 列出可用工具")
+        print("  7 - 列出可用资源")
+        print("  8 - 交互式设置")
+        print("  q - 返回")
+
+        while True:
+            choice = input(f"\n{Fore.WHITE}请选择操作 > {Style.RESET_ALL}").strip().lower()
+
+            if choice == '1':
+                current_status = "启用" if mcp_config.is_enabled() else "禁用"
+                print(f"当前状态: {current_status}")
+
+                enable_choice = input(f"是否启用MCP? (y/n): ").strip().lower()
+                if enable_choice in ['y', 'yes']:
+                    mcp_config.enable_mcp(True)
+                    print(f"{Fore.GREEN}✓ MCP已启用{Style.RESET_ALL}")
+                elif enable_choice in ['n', 'no']:
+                    mcp_config.enable_mcp(False)
+                    print(f"{Fore.YELLOW}MCP已禁用{Style.RESET_ALL}")
+
+            elif choice == '2':
+                _configure_mcp_servers()
+
+            elif choice == '3':
+                _start_mcp_servers()
+
+            elif choice == '4':
+                _stop_mcp_servers()
+
+            elif choice == '5':
+                _show_mcp_server_status()
+
+            elif choice == '6':
+                _list_mcp_tools()
+
+            elif choice == '7':
+                _list_mcp_resources()
+
+            elif choice == '8':
+                mcp_config.interactive_setup()
+
+            elif choice == 'q':
+                break
+
+            else:
+                print(f"{Fore.YELLOW}无效选择{Style.RESET_ALL}")
+
+    except ImportError as e:
+        print(f"{Fore.RED}MCP模块导入失败: {e}{Style.RESET_ALL}")
+    except Exception as e:
+        print(f"{Fore.RED}MCP命令处理失败: {e}{Style.RESET_ALL}")
+
+def _configure_mcp_servers():
+    """配置MCP服务器"""
+    from src.mcp_config import mcp_config
+
+    print(f"\n{Fore.CYAN}配置MCP服务器{Style.RESET_ALL}")
+    servers = mcp_config.config.get("servers", {})
+
+    print("可用服务器:")
+    for i, (name, config) in enumerate(servers.items(), 1):
+        status = "启用" if config.get("enabled", False) else "禁用"
+        print(f"  {i}. {name} - {config.get('description', '')} ({status})")
+
+    try:
+        choice = int(input("\n请选择要配置的服务器编号: ")) - 1
+        server_names = list(servers.keys())
+
+        if 0 <= choice < len(server_names):
+            server_name = server_names[choice]
+            server_config = servers[server_name]
+
+            print(f"\n配置服务器: {server_name}")
+            print(f"描述: {server_config.get('description', '')}")
+
+            # 启用/禁用
+            current_enabled = server_config.get("enabled", False)
+            enable_choice = input(f"启用服务器? (y/n, 当前: {'y' if current_enabled else 'n'}): ").strip().lower()
+
+            if enable_choice in ['y', 'yes']:
+                mcp_config.enable_server(server_name, True)
+                print(f"{Fore.GREEN}✓ {server_name} 已启用{Style.RESET_ALL}")
+
+                # 配置环境变量
+                env_vars = server_config.get("env", {})
+                if env_vars:
+                    print(f"\n环境变量配置:")
+                    for env_key in env_vars.keys():
+                        current_value = env_vars.get(env_key, "")
+                        display_value = "***" if current_value and ("key" in env_key.lower() or "token" in env_key.lower()) else current_value
+                        print(f"  {env_key}: {display_value}")
+
+                        new_value = input(f"请输入 {env_key} 的值 (留空保持不变): ").strip()
+                        if new_value:
+                            mcp_config.set_server_env(server_name, env_key, new_value)
+                            print(f"✓ {env_key} 已更新")
+
+            elif enable_choice in ['n', 'no']:
+                mcp_config.enable_server(server_name, False)
+                print(f"{Fore.YELLOW}{server_name} 已禁用{Style.RESET_ALL}")
+        else:
+            print(f"{Fore.YELLOW}无效的服务器编号{Style.RESET_ALL}")
+
+    except ValueError:
+        print(f"{Fore.YELLOW}请输入有效的数字{Style.RESET_ALL}")
+
+def _start_mcp_servers():
+    """启动MCP服务器"""
+    from src.mcp_config import mcp_config
+    from src.mcp_client import mcp_client
+    import asyncio
+
+    if not mcp_config.is_enabled():
+        print(f"{Fore.YELLOW}MCP功能未启用{Style.RESET_ALL}")
+        return
+
+    enabled_servers = mcp_config.get_enabled_servers()
+    if not enabled_servers:
+        print(f"{Fore.YELLOW}没有启用的服务器{Style.RESET_ALL}")
+        return
+
+    print(f"\n{Fore.CYAN}启动MCP服务器{Style.RESET_ALL}")
+
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    try:
+        for server_name in enabled_servers:
+            server_config = mcp_config.get_server_config(server_name)
+            if server_config:
+                print(f"启动服务器: {server_name}")
+
+                # 添加服务器到MCP客户端
+                mcp_client.add_server(
+                    server_name,
+                    server_config.get("command", []),
+                    server_config.get("args", []),
+                    server_config.get("env", {}),
+                    server_config.get("type", "process"),
+                    server_config.get("url")
+                )
+
+                # 启动服务器
+                success = loop.run_until_complete(mcp_client.start_server(server_name))
+
+                if success:
+                    print(f"{Fore.GREEN}✓ {server_name} 启动成功{Style.RESET_ALL}")
+                else:
+                    print(f"{Fore.RED}❌ {server_name} 启动失败{Style.RESET_ALL}")
+    finally:
+        loop.close()
+
+def _stop_mcp_servers():
+    """停止MCP服务器"""
+    from src.mcp_client import mcp_client
+    import asyncio
+
+    print(f"\n{Fore.CYAN}停止MCP服务器{Style.RESET_ALL}")
+
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    try:
+        loop.run_until_complete(mcp_client.stop_all_servers())
+        print(f"{Fore.GREEN}✓ 所有MCP服务器已停止{Style.RESET_ALL}")
+    finally:
+        loop.close()
+
+def _show_mcp_server_status():
+    """显示MCP服务器状态"""
+    from src.mcp_client import mcp_client
+
+    print(f"\n{Fore.CYAN}MCP服务器状态{Style.RESET_ALL}")
+    print("=" * 40)
+
+    status = mcp_client.get_server_status()
+
+    if not status:
+        print(f"{Fore.YELLOW}没有配置的服务器{Style.RESET_ALL}")
+        return
+
+    for server_name, server_status in status.items():
+        status_color = Fore.GREEN if server_status == "运行中" else Fore.YELLOW
+        print(f"{status_color}{server_name}: {server_status}{Style.RESET_ALL}")
+
+    # 显示统计信息
+    tools_count = len(mcp_client.get_available_tools())
+    resources_count = len(mcp_client.get_available_resources())
+
+    print(f"\n统计信息:")
+    print(f"  可用工具: {tools_count}")
+    print(f"  可用资源: {resources_count}")
+
+def _list_mcp_tools():
+    """列出MCP工具"""
+    from src.mcp_client import mcp_client
+
+    print(f"\n{Fore.CYAN}可用的MCP工具{Style.RESET_ALL}")
+    print("=" * 40)
+
+    tools = mcp_client.get_available_tools()
+
+    if not tools:
+        print(f"{Fore.YELLOW}没有可用的工具{Style.RESET_ALL}")
+        return
+
+    for tool in tools:
+        print(f"{Fore.GREEN}工具: {tool.name}{Style.RESET_ALL}")
+        print(f"  服务器: {tool.server_name}")
+        print(f"  描述: {tool.description}")
+        print()
+
+def _list_mcp_resources():
+    """列出MCP资源"""
+    from src.mcp_client import mcp_client
+
+    print(f"\n{Fore.CYAN}可用的MCP资源{Style.RESET_ALL}")
+    print("=" * 40)
+
+    resources = mcp_client.get_available_resources()
+
+    if not resources:
+        print(f"{Fore.YELLOW}没有可用的资源{Style.RESET_ALL}")
+        return
+
+    for resource in resources:
+        print(f"{Fore.GREEN}资源: {resource.name}{Style.RESET_ALL}")
+        print(f"  服务器: {resource.server_name}")
+        print(f"  URI: {resource.uri}")
+        print(f"  描述: {resource.description}")
+        print()
 
 # ========== UI界面 ==========
 def print_header():
@@ -283,6 +539,58 @@ def print_input_box():
     current_mode = mode_manager.get_current_mode()
     print(f"{Fore.LIGHTBLACK_EX}? {current_mode}{Style.RESET_ALL}")
 
+def auto_start_mcp_servers():
+    """自动启动MCP服务器"""
+    try:
+        from src.mcp_config import mcp_config
+        from src.mcp_client import mcp_client
+        import asyncio
+
+        # 检查MCP是否启用
+        if not mcp_config.is_enabled():
+            return
+
+        # 获取启用的服务器
+        enabled_servers = mcp_config.get_enabled_servers()
+        if not enabled_servers:
+            return
+
+        print(f"{Fore.CYAN}🔧 启动MCP服务器...{Style.RESET_ALL}")
+
+        # 创建异步事件循环
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        try:
+            success_count = 0
+            for server_name in enabled_servers:
+                server_config = mcp_config.get_server_config(server_name)
+                if server_config:
+                    # 添加服务器到MCP客户端
+                    mcp_client.add_server(
+                        server_name,
+                        server_config.get("command", []),
+                        server_config.get("args", []),
+                        server_config.get("env", {}),
+                        server_config.get("type", "process"),
+                        server_config.get("url")
+                    )
+
+                    # 启动服务器
+                    success = loop.run_until_complete(mcp_client.start_server(server_name))
+                    if success:
+                        success_count += 1
+
+            if success_count > 0:
+                tools_count = len(mcp_client.get_available_tools())
+                print(f"{Fore.GREEN}✅ MCP服务器启动完成，可用工具: {tools_count} 个{Style.RESET_ALL}")
+
+        finally:
+            loop.close()
+
+    except Exception as e:
+        print(f"{Fore.YELLOW}⚠️ MCP服务器启动失败: {e}{Style.RESET_ALL}")
+
 # ========== 主程序 ==========
 def main():
     """主程序入口"""
@@ -294,6 +602,9 @@ def main():
         # 显示初始状态
         print_status()
         print()
+
+        # 自动启动MCP服务器
+        auto_start_mcp_servers()
 
         # 主循环
         while True:
