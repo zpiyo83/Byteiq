@@ -11,7 +11,7 @@ def get_available_commands():
     """获取所有可用命令"""
     return [
         "/help", "/status", "/clear", "/pwd", "/ls", "/cd", "/exit",
-        "/s", "/mode", "/clear-history", "/todo", "/todos"
+        "/s", "/mode", "/clear-history", "/todo", "/todos", "/compact"
     ]
 
 def get_command_descriptions():
@@ -28,7 +28,8 @@ def get_command_descriptions():
         "/mode": "切换工作模式",
         "/clear-history": "清除AI对话历史",
         "/todo": "TODO任务管理",
-        "/todos": "显示TODO列表"
+        "/todos": "显示TODO列表",
+        "/compact": "压缩上下文"
     }
 
 def filter_commands(partial_input):
@@ -63,9 +64,10 @@ def show_help():
 
 {Fore.CYAN}AI功能:{Style.RESET_ALL}
   {Fore.GREEN}直接输入{Style.RESET_ALL}        - 与AI助手对话（无需命令前缀）
-  {Fore.WHITE}/s{Style.RESET_ALL}        - 设置（API密钥、语言、模型）
+  {Fore.WHITE}/s{Style.RESET_ALL}        - 设置（API密钥、语言、模型、主题）
   {Fore.WHITE}/mode{Style.RESET_ALL}     - 切换工作模式
   {Fore.WHITE}/clear-history{Style.RESET_ALL} - 清除AI对话历史
+  {Fore.WHITE}/compact{Style.RESET_ALL}      - 压缩上下文
 
 {Fore.CYAN}TODO任务管理:{Style.RESET_ALL}
   {Fore.WHITE}/todos{Style.RESET_ALL}    - 显示TODO任务列表

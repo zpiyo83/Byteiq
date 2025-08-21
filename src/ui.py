@@ -91,8 +91,13 @@ def print_input_box():
     """打印输入框"""
     gray = Fore.LIGHTBLACK_EX  # 灰色
 
-    # 输入框宽度
-    input_box_width = 80
+    # 获取终端宽度并计算输入框宽度（保留左右边距）
+    try:
+        import shutil
+        terminal_width = shutil.get_terminal_size().columns
+        input_box_width = min(terminal_width - 4, 120)  # 最大宽度120，保留4列边距
+    except:
+        input_box_width = 110  # 默认宽度
 
     # 输入框顶部边框（圆角，灰色）
     print(f"{gray}╭{'─' * (input_box_width - 2)}╮{Style.RESET_ALL}")
@@ -103,13 +108,13 @@ def print_input_box():
     # 输入框底部边框（圆角，灰色）
     print(f"{gray}╰{'─' * (input_box_width - 2)}╯{Style.RESET_ALL}")
 
-    # 当前模式提示文字（灰色）
-    from src.modes import mode_manager
-    current_mode = mode_manager.get_current_mode()
-    print(f"{gray}? {current_mode}{Style.RESET_ALL}")
+    # 保存当前光标位置（作为输入框左上角参考点）
+    # 放在输入框之后，以便正确定位到输入位置
+    print('\033[s', end='', flush=True)
 
 def position_cursor_for_input():
-    """定位光标到输入框内"""
-    # 由于终端兼容性问题，我们简化实现
-    # 直接在输入框下方显示提示符
-    pass
+    """恢复到输入框起点，再相对移动到内容行内的提示符位置"""
+    # 恢复到 print_input_box 保存的位置（输入框左上角）
+    print('\033[u', end='', flush=True)
+    # 上移2行到内容行，右移2列到竖线内侧（为'>'符号留出空间）
+    print('\033[2A\033[2C', end='', flush=True)

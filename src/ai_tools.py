@@ -13,10 +13,12 @@ from .todo_renderer import get_todo_renderer
 from .modes import mode_manager
 from .mcp_client import mcp_client
 from .mcp_config import mcp_config
+from .thinking_animation import show_dot_cycle_animation
+from .theme import theme_manager
 
 class AIToolProcessor:
     """AI工具处理器"""
-    
+
     def __init__(self):
         self.tools = {
             'read_file': self.read_file,
@@ -34,10 +36,11 @@ class AIToolProcessor:
             'mcp_list_tools': self.mcp_list_tools,
             'mcp_list_resources': self.mcp_list_resources,
             'mcp_server_status': self.mcp_server_status,
-            'task_complete': self.task_complete
+            'task_complete': self.task_complete,
+            'code_search': self.code_search
         }
         self.todo_renderer = get_todo_renderer(todo_manager)
-    
+
     def process_response(self, ai_response):
         """处理AI响应，提取和执行工具调用"""
         # 查找XML工具调用
@@ -57,9 +60,10 @@ class AIToolProcessor:
             'mcp_list_tools': r'<mcp_list_tools></mcp_list_tools>',
             'mcp_list_resources': r'<mcp_list_resources></mcp_list_resources>',
             'mcp_server_status': r'<mcp_server_status></mcp_server_status>',
-            'task_complete': r'<task_complete><summary>(.*?)</summary></task_complete>'
+            'task_complete': r'<task_complete><summary>(.*?)</summary></task_complete>',
+            'code_search': r'<code_search><keyword>(.*?)</keyword></code_search>'
         }
-        
+
         tool_found = False
         tool_result = ""
         display_text = ai_response
@@ -168,11 +172,11 @@ class AIToolProcessor:
                     tool_result, display_text = self._execute_tool_with_matches(tool_name, matches)
 
                 break
-        
+
         # 如果没有工具调用，移除XML标签显示纯文本
         if not tool_found:
             display_text = self._remove_xml_tags(ai_response)
-        
+
         # 🚨 强制继续判断逻辑 - 只有task_complete才能结束
         should_continue = False
         if tool_found:
@@ -189,7 +193,7 @@ class AIToolProcessor:
             'display_text': display_text,
             'should_continue': should_continue
         }
-    
+
     def _get_content_preview(self, content, max_lines=5):
         """获取内容预览（前5行）"""
         lines = content.split('\n')
@@ -198,26 +202,34 @@ class AIToolProcessor:
         else:
             preview_lines = lines[:max_lines]
             return '\n'.join(preview_lines) + f"\n... (还有 {len(lines) - max_lines} 行)"
-    
+
     def _remove_xml_tags(self, text):
         """移除XML标签"""
         # 移除所有XML标签
         clean_text = re.sub(r'<[^>]+>', '', text)
         return clean_text.strip()
-    
+
     def read_file(self, path):
         """读取文件工具"""
         try:
             if not os.path.exists(path):
                 return f"错误：文件 {path} 不存在"
-            
+
             with open(path, 'r', encoding='utf-8') as f:
                 content = f.read()
+                lines = content.split('\n')
+                line_count = len(lines)
+                char_count = len(content)
+
+            # 只显示简化的格式
+            print(f"\n{theme_manager.format_tool_header('Read', path)}")
+            print(f"  • {line_count} lines viewed")
+            print(f"  • {char_count} characters")
             
             return f"成功读取文件 {path}，内容长度: {len(content)} 字符"
         except Exception as e:
             return f"读取文件失败: {str(e)}"
-    
+
     def write_file(self, path, content):
         """写入文件工具"""
         try:
@@ -233,7 +245,7 @@ class AIToolProcessor:
             return f"成功写入文件 {path}"
         except Exception as e:
             return f"写入文件失败: {str(e)}"
-    
+
     def create_file(self, path, content):
         """创建文件工具"""
         try:
@@ -264,33 +276,24 @@ class AIToolProcessor:
             if not os.path.isfile(path):
                 return f"❌ 错误：{path} 不是文件，无法删除"
 
-            # 显示删除预览
-            file_size = os.path.getsize(path)
-            print(f"\n{Fore.RED}🗑️ 删除文件: {path}{Style.RESET_ALL}")
-            print("=" * 60)
-            print(f"{Fore.YELLOW}⚠️ 警告：此操作将永久删除文件{Style.RESET_ALL}")
-            print(f"📁 文件路径: {path}")
-            print(f"📊 文件大小: {file_size} 字节")
-
-            # 显示文件内容预览（前3行）
+            # 读取文件信息用于显示
+            line_count = 0
             try:
                 with open(path, 'r', encoding='utf-8') as f:
                     lines = f.readlines()
-                    preview_lines = lines[:3]
-                    print(f"{Fore.CYAN}📄 文件内容预览:{Style.RESET_ALL}")
-                    for i, line in enumerate(preview_lines, 1):
-                        print(f"  {i:3d}: {line.rstrip()}")
-                    if len(lines) > 3:
-                        print(f"  ... (还有 {len(lines) - 3} 行)")
+                    line_count = len(lines)
             except:
-                print(f"{Fore.CYAN}📄 文件内容: 无法预览（可能是二进制文件）{Style.RESET_ALL}")
-
-            print("=" * 60)
+                line_count = 0
 
             # 执行删除
             os.remove(path)
 
-            print(f"{Fore.GREEN}✅ 文件已成功删除{Style.RESET_ALL}")
+            # 只显示简化的格式
+            print(f"\n{theme_manager.format_tool_header('Delete', path)}")
+            print(f"  • -{line_count} additions")
+            print(f"  • +1 deletion")
+            print("  • File moved to trash")
+            
             return f"成功删除文件 {path}"
 
         except Exception as e:
@@ -365,7 +368,7 @@ class AIToolProcessor:
             return f"成功替换 {path} 第{start_line}-{end_line}行 ({replaced_count}行) 为 {len(replace_lines)} 行新代码"
         except Exception as e:
             return f"替换代码失败: {str(e)}"
-    
+
     def execute_command(self, command):
         """执行命令工具"""
         try:
@@ -373,7 +376,7 @@ class AIToolProcessor:
             dangerous_commands = ['rm -rf', 'del /f', 'format', 'fdisk', 'mkfs']
             if any(dangerous in command.lower() for dangerous in dangerous_commands):
                 return "错误：禁止执行危险命令"
-            
+
             result = subprocess.run(
                 command,
                 shell=True,
@@ -383,20 +386,42 @@ class AIToolProcessor:
                 encoding='utf-8',
                 errors='ignore'
             )
-            
+
             stdout = result.stdout or ""
             stderr = result.stderr or ""
             output = stdout + stderr
             return_code = result.returncode
 
+            # 只显示简化的格式
+            print(f"\n{theme_manager.format_tool_header('Execute', command)}")
+            if return_code == 0:
+                print("  • Command executed successfully")
+            else:
+                print(f"  • Command failed with return code: {return_code}")
+            
+            # 显示前几行输出
+            if output.strip():
+                output_lines = output.strip().split('\n')
+                for line in output_lines[:3]:  # 只显示前3行
+                    print(f"  • {line}")
+                if len(output_lines) > 3:
+                    print(f"  • ... (还有 {len(output_lines) - 3} 行输出)")
+            else:
+                print("  • (无输出)")
+                
+            # 返回原始结果供后续处理
             if return_code == 0:
                 return f"命令执行成功:\n{output}" if output.strip() else "命令执行成功"
             else:
                 return f"命令执行失败 (返回码: {return_code}):\n{output}"
-                
+
         except subprocess.TimeoutExpired:
+            print(f"\n{theme_manager.format_tool_header('Execute', command)}")
+            print("  • 命令执行超时")
             return "命令执行超时"
         except Exception as e:
+            print(f"\n{theme_manager.format_tool_header('Execute', command)}")
+            print(f"  • 执行命令失败: {str(e)}")
             return f"执行命令失败: {str(e)}"
 
     def add_todo(self, title: str, description: str = "", priority: str = "medium"):
@@ -441,6 +466,50 @@ class AIToolProcessor:
     def task_complete(self, summary):
         """任务完成工具"""
         return f"任务已完成: {summary}"
+
+    
+    def code_search(self, keyword):
+        """在项目中搜索代码"""
+        try:
+            print(f"\n{Fore.CYAN}🔍 正在搜索: {keyword}{Style.RESET_ALL}")
+            print("=" * 60)
+
+            # 定义忽略的目录和文件类型
+            ignore_dirs = {'.git', '__pycache__', 'dist', 'build', '.vscode', 'node_modules'}
+            ignore_exts = {'.pyc', '.pyo', '.pyd', '.so', '.o', '.a', '.dll', '.exe', '.log', '.tmp'}
+
+            results = []
+            for root, dirs, files in os.walk('.'):
+                # 过滤忽略的目录
+                dirs[:] = [d for d in dirs if d not in ignore_dirs]
+
+                for file in files:
+                    # 过滤忽略的文件类型
+                    if any(file.endswith(ext) for ext in ignore_exts):
+                        continue
+
+                    path = os.path.join(root, file)
+                    try:
+                        with open(path, 'r', encoding='utf-8', errors='ignore') as f:
+                            for i, line in enumerate(f, 1):
+                                if keyword in line:
+                                    results.append(f"{path}:{i}: {line.strip()}")
+                    except Exception:
+                        # 忽略无法读取的文件
+                        continue
+
+            if not results:
+                print(f"{Fore.YELLOW}没有找到包含 '{keyword}' 的文件{Style.RESET_ALL}")
+                return f"没有找到包含 '{keyword}' 的文件"
+
+            # 格式化并打印结果
+            result_str = "\n".join(results)
+            print(f"{Fore.GREEN}✅ 搜索完成，找到 {len(results)} 处匹配项{Style.RESET_ALL}")
+            print(result_str)
+            return f"搜索成功，找到 {len(results)} 处匹配项:\n{result_str}"
+
+        except Exception as e:
+            return f"搜索失败: {str(e)}"
 
     def mcp_call_tool(self, tool_name, arguments_json):
         """调用MCP工具"""
@@ -716,9 +785,17 @@ class AIToolProcessor:
                 summary = matches[0].strip()
                 tool_result = self.tools[tool_name](summary)
                 display_text = f"任务完成: {summary}"
+            elif tool_name == 'code_search':
+                keyword = matches[0].strip()
+                tool_result = self.tools[tool_name](keyword)
+                display_text = f"代码搜索: {keyword}"
             else:
                 tool_result = "未知工具"
                 display_text = f"未知工具: {tool_name}"
+            
+            # 显示短暂的点循环动画
+            show_dot_cycle_animation("执行", 0.3)
+            return tool_result, display_text
 
         except Exception as e:
             # 🚨 工具执行失败时的处理
@@ -732,8 +809,10 @@ class AIToolProcessor:
             print(f"  工具: {tool_name}")
             print(f"  参数: {matches}")
             print(f"  错误: {error_msg}")
-
-        return tool_result, display_text
+            
+            # 显示短暂的点循环动画
+            show_dot_cycle_animation("失败", 0.3)
+            return tool_result, display_text
 
     def _is_command_real_failure(self, tool_result):
         """智能检测命令是否真正失败"""
@@ -882,23 +961,19 @@ class AIToolProcessor:
 
     def _show_file_creation_preview(self, path, content):
         """显示文件创建预览"""
-        print(f"\n{Fore.CYAN}📄 创建文件: {path}{Style.RESET_ALL}")
-        print(f"{Fore.CYAN}{'='*60}{Style.RESET_ALL}")
-
-        # 显示文件内容预览（前10行）
         lines = content.split('\n')
-        preview_lines = min(10, len(lines))
-
-        print(f"{Fore.GREEN}✅ 文件内容 (前{preview_lines}行):{Style.RESET_ALL}")
-        for i, line in enumerate(lines[:preview_lines], 1):
-            print(f"{Fore.GREEN}+ {i:3d}: {line}{Style.RESET_ALL}")
-
-        if len(lines) > preview_lines:
-            remaining = len(lines) - preview_lines
-            print(f"{Fore.LIGHTBLACK_EX}... 还有 {remaining} 行内容{Style.RESET_ALL}")
-
-        print(f"{Fore.CYAN}📊 文件统计: {len(lines)} 行, {len(content)} 字符{Style.RESET_ALL}")
-        print(f"{Fore.CYAN}{'='*60}{Style.RESET_ALL}")
+        
+        # 只显示简化的格式
+        print(f"\n{theme_manager.format_tool_header('Create', path)}")
+        print(f"  • +{len(lines)} additions")
+        print(f"  • 0 deletions")
+        
+        # 显示前几行内容（带缩进）
+        show_lines = min(5, len(lines))
+        for i, line in enumerate(lines[:show_lines], 1):
+            print(f"    + {i:2d}: {line}")
+        if len(lines) > show_lines:
+            print(f"    ... (还有 {len(lines) - show_lines} 行)")
 
     def _show_file_write_preview(self, path, content):
         """显示文件写入预览"""

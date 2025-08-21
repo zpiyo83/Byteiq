@@ -121,6 +121,7 @@ from src.ai_client import ai_client
 
 # 使用统一的工具处理器（包含权限控制）
 from src.ai_tools import ai_tool_processor
+from src.input_handler import get_input_with_claude_style
 from src.keyboard_handler import (
     start_task_monitoring, stop_task_monitoring,
     is_task_interrupted, reset_interrupt_flag
@@ -632,7 +633,7 @@ def main():
 
                 # 获取用户输入（安全版本）
                 try:
-                    user_input = input(f"{Fore.WHITE}> {Style.RESET_ALL}").strip()
+                    user_input = get_input_with_claude_style()
                 except EOFError:
                     # 处理EOF错误（比如Ctrl+Z或管道输入结束）
                     try:

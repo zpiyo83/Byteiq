@@ -153,14 +153,48 @@ def set_prompt_strength_interactive():
     else:
         print(f"{Fore.YELLOW}无效选择{Style.RESET_ALL}")
 
+def set_theme_interactive():
+    """交互式设置主题"""
+    from .theme import theme_manager
+    
+    cfg = load_config()
+    current_theme = cfg.get("theme", "default")
+    
+    print(f"\n{Fore.CYAN}主题设置{Style.RESET_ALL}")
+    print(f"当前主题: {current_theme}")
+    print(f"\n{Fore.CYAN}可选主题:{Style.RESET_ALL}")
+    
+    themes = theme_manager.get_available_themes()
+    for i, theme in enumerate(themes, 1):
+        print(f"  {i} - {theme}")
+    print(f"  回车 - 保持不变")
+    
+    choice = input(f"\n{Fore.WHITE}请选择主题 > {Style.RESET_ALL}").strip()
+    
+    if choice.isdigit() and 1 <= int(choice) <= len(themes):
+        selected_theme = themes[int(choice) - 1]
+        cfg["theme"] = selected_theme
+        if save_config(cfg):
+            theme_manager.set_theme(selected_theme)
+            print(f"{Fore.GREEN}✓ 主题设置已保存: {selected_theme}{Style.RESET_ALL}")
+        else:
+            print(f"{Fore.RED}✗ 主题设置保存失败{Style.RESET_ALL}")
+    elif choice == "":
+        print(f"{Fore.CYAN}主题设置未修改{Style.RESET_ALL}")
+    else:
+        print(f"{Fore.YELLOW}无效选择{Style.RESET_ALL}")
+
 def show_settings():
     """显示设置菜单"""
+    from .theme import theme_manager
+    
     while True:
         cfg = load_config()
         api_key_status = "已设置 ********" if cfg.get("api_key") else "未设置"
         language_status = cfg.get("language", "zh-CN")
         model_status = cfg.get("model", "gpt-3.5-turbo")
         prompt_strength_status = cfg.get("prompt_strength", "claude")
+        theme_status = cfg.get("theme", "default")
 
         print(f"\n{Fore.LIGHTCYAN_EX}Forge AI Code 设置{Style.RESET_ALL}")
         print(f"{'='*60}")
@@ -168,6 +202,7 @@ def show_settings():
         print(f"语言: {language_status}")
         print(f"AI模型: {model_status}")
         print(f"提示词强度: {prompt_strength_status}")
+        print(f"主题: {theme_status}")
         print(f"配置文件: {CONFIG_PATH}")
         print(f"{'='*60}")
         print(f"\n{Fore.CYAN}请选择操作:{Style.RESET_ALL}")
@@ -175,9 +210,10 @@ def show_settings():
         print(f"  2 - 设置API密钥")
         print(f"  3 - 设置模型")
         print(f"  4 - 设置提示词强度")
-        print(f"  5 - 退出设置")
+        print(f"  5 - 设置主题")
+        print(f"  6 - 退出设置")
 
-        choice = input(f"\n{Fore.WHITE}请输入选项 (1-5) > {Style.RESET_ALL}").strip()
+        choice = input(f"\n{Fore.WHITE}请输入选项 (1-6) > {Style.RESET_ALL}").strip()
 
         if choice == "1":
             set_language_interactive()
@@ -188,8 +224,10 @@ def show_settings():
         elif choice == "4":
             set_prompt_strength_interactive()
         elif choice == "5":
+            set_theme_interactive()
+        elif choice == "6":
             print(f"{Fore.CYAN}退出设置{Style.RESET_ALL}")
             break
         else:
-            print(f"{Fore.YELLOW}无效选择，请输入 1-5{Style.RESET_ALL}")
+            print(f"{Fore.YELLOW}无效选择，请输入 1-6{Style.RESET_ALL}")
             input(f"{Fore.CYAN}按回车继续...{Style.RESET_ALL}")

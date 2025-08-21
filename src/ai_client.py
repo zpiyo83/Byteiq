@@ -9,10 +9,10 @@ import threading
 import time
 import queue
 from concurrent.futures import ThreadPoolExecutor, Future
-from .thinking_animation import start_thinking, stop_thinking
+from .thinking_animation import show_dot_cycle_animation, start_thinking, stop_thinking
 from .keyboard_handler import (
     start_task_monitoring, stop_task_monitoring,
-    show_esc_hint, is_task_interrupted, reset_interrupt_flag,
+    is_task_interrupted, reset_interrupt_flag,
     interrupt_current_task
 )
 from .output_monitor import start_output_monitoring, stop_output_monitoring, enable_print_monitoring
@@ -143,7 +143,7 @@ class AIClient:
         self.is_loading = False
         self.loading_thread = None
         self.network_manager = AsyncNetworkManager()
-    
+
     def get_system_prompt(self):
         """获取系统提示词"""
         # 检查当前模式和提示词强度
@@ -167,17 +167,17 @@ class AIClient:
         """获取项目结构"""
         if current_depth >= max_depth:
             return ""
-        
+
         structure = ""
         try:
             items = sorted(os.listdir(path))
             for item in items:
                 if item.startswith('.'):
                     continue
-                    
+
                 item_path = os.path.join(path, item)
                 indent = "  " * current_depth
-                
+
                 if os.path.isdir(item_path):
                     structure += f"{indent}{item}/\n"
                     structure += self.get_project_structure(item_path, max_depth, current_depth + 1)
@@ -185,7 +185,7 @@ class AIClient:
                     structure += f"{indent}{item}\n"
         except PermissionError:
             pass
-        
+
         return structure
 
     # 旧的加载动画已移除，使用新的思考动画系统
@@ -227,12 +227,11 @@ class AIClient:
 
     def send_message_non_blocking(self, user_input, include_structure=True):
         """非阻塞发送消息给AI"""
-        print(f"🤖 AI助手正在思考...")
-
-        # 启动思考动画和任务监控
+        # 启动思考动画
         start_thinking()
+
+        # 启动任务监控
         start_task_monitoring(interrupt_current_task)
-        show_esc_hint()
 
         try:
             # 提交异步请求
@@ -313,7 +312,7 @@ class AIClient:
                     user_message += "\n\n当前项目结构：空"
 
             messages.append({"role": "user", "content": user_message})
-            
+
             # 准备请求数据
             data = {
                 "model": self.config.get("model", "gpt-3.5-turbo"),
@@ -321,16 +320,17 @@ class AIClient:
                 "temperature": 0.7,
                 "max_tokens": 2000
             }
-            
+
             headers = {
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {self.config.get('api_key', '')}"
             }
-            
-            # 启动思考动画和任务监控
+
+            # 启动思考动画
             start_thinking()
+            
+            # 启动任务监控
             start_task_monitoring(interrupt_current_task)
-            show_esc_hint()
 
             try:
                 # 发送请求，增加超时时间
@@ -344,7 +344,7 @@ class AIClient:
             if is_task_interrupted():
                 reset_interrupt_flag()
                 return "任务已被用户中断"
-            
+
             if response.status_code == 200:
                 result = response.json()
                 ai_response = result['choices'][0]['message']['content']
@@ -358,10 +358,12 @@ class AIClient:
                     self.conversation_history = self.conversation_history[-20:]
 
                 # 根据调试配置格式化响应
+                # 显示短暂的点循环动画
+                show_dot_cycle_animation("AI", 0.3)
                 return format_ai_response(ai_response, result)
             else:
                 return f"API请求失败: {response.status_code} - {response.text}"
-                
+
         except requests.exceptions.Timeout:
             # 确保停止动画和监控
             try:
@@ -398,6 +400,15 @@ class AIClient:
     def clear_history(self):
         """清除对话历史"""
         self.conversation_history = []
+
+
+    def get_history(self):
+        """获取当前对话历史"""
+        return self.conversation_history
+
+    def set_history(self, history):
+        """设置新的对话历史"""
+        self.conversation_history = history
 
 # 全局AI客户端实例
 ai_client = AIClient()

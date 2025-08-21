@@ -22,8 +22,9 @@ class ThinkingAnimation:
         
         # 思考状态词汇
         self.thinking_words = [
-            "编码", "理解", "整理", "思考", "分析", 
-            "规划", "设计", "构建", "优化", "检查"
+            "思考", "构建", "理解", "摸鱼", "整理", 
+            "规划", "吐槽", "分析", "编码", "设计",
+            "优化", "检查"
         ]
         
         # 颜色配置
@@ -33,6 +34,8 @@ class ThinkingAnimation:
         
     def start(self):
         """开始思考动画"""
+        # 先输出一个换行符
+        print()
         if self.is_running:
             return
             
@@ -82,12 +85,12 @@ class ThinkingAnimation:
         """显示单词的高光动画"""
         # 高光动画参数
         highlight_width = 1  # 高光宽度
-        animation_speed = 0.12  # 动画速度
+        animation_speed = 0.15  # 动画速度 (稍慢一些让动画更明显)
 
         # 先显示完整的暗色词汇
         dim_word = f"{self.dim_color}{word}{Style.RESET_ALL}"
-        self._update_line(f"{dim_word}...")
-        time.sleep(0.2)
+        self._update_line(f"🤖 AI正在{dim_word}中...")
+        time.sleep(0.3)
 
         # 高光从左到右扫过
         for i in range(len(word)):
@@ -107,7 +110,7 @@ class ThinkingAnimation:
 
             # 显示当前帧
             display_text = "".join(display_chars)
-            self._update_line(f"{display_text}...")
+            self._update_line(f"🤖 AI正在{display_text}中...")
 
             # 等待下一帧
             time.sleep(animation_speed)
@@ -130,15 +133,15 @@ class ThinkingAnimation:
 
             # 显示当前帧
             display_text = "".join(display_chars)
-            self._update_line(f"{display_text}...")
+            self._update_line(f"🤖 AI正在{display_text}中...")
 
             # 等待下一帧
-            time.sleep(animation_speed * 0.8)  # 第二遍稍快一些
+            time.sleep(animation_speed * 0.7)  # 第二遍稍快一些
 
         # 最后显示完整的高亮词汇
         bright_word = f"{self.highlight_color}{word}{Style.RESET_ALL}"
-        self._update_line(f"{bright_word}...")
-        time.sleep(0.4)
+        self._update_line(f"🤖 AI正在{bright_word}中...")
+        time.sleep(0.5)
         
     def _update_line(self, text):
         """更新当前行的显示"""
@@ -165,6 +168,51 @@ def stop_thinking():
 def show_simple_thinking(message="AI正在处理您的请求..."):
     """显示简单的思考消息（无动画）"""
     print(f"{Fore.CYAN}{message}{Style.RESET_ALL}")
+
+def show_dot_cycle_animation(message="AI", duration=0.3):
+    """显示循环点动画（阻塞式，适合短时间显示）"""
+    import itertools
+    import time
+    import sys
+    
+    # 简短的消息
+    if message == "AI正在思考":
+        message = "AI"
+    elif message == "AI正在响应":
+        message = "AI"
+    elif message == "AI正在执行工具":
+        message = "执行"
+    elif message == "AI工具执行失败":
+        message = "失败"
+    elif message == "AI完成任务":
+        message = "完成"
+    elif message == "AI继续处理":
+        message = "继续"
+    
+    # 循环点样式
+    dots = itertools.cycle(['.  ', '.. ', '...'])
+    
+    # 计算动画结束时间
+    end_time = time.time() + duration
+    
+    # 先输出一个换行符
+    print()
+    
+    # 显示动画在新行上，然后清除整行（避免干扰输入框）
+    sys.stdout.write(f"\n{Fore.CYAN}{message}... (ESC){Style.RESET_ALL}")
+    sys.stdout.flush()
+    
+    # 更新点动画在同一行
+    while time.time() < end_time:
+        dot_pattern = next(dots)
+        display_text = f"{Fore.CYAN}{message}{dot_pattern} (ESC){Style.RESET_ALL}"
+        sys.stdout.write(f"\r{display_text}")
+        sys.stdout.flush()
+        time.sleep(0.1)  # 更快的动画速度
+    
+    # 清除整行并回到上一行（确保不干扰输入框）
+    sys.stdout.write("\r\033[K\033[1A\033[K")
+    sys.stdout.flush()
 
 # 测试函数
 def test_animation():

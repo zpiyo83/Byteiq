@@ -3,6 +3,8 @@
 """
 
 import os
+import shutil
+import re
 from colorama import Fore, Style
 from .ui import position_cursor_for_input
 from .commands import filter_commands
@@ -40,12 +42,20 @@ def show_command_suggestions(partial_input):
     
     print(f"\n按Enter使用建议，或输入其他命令:")
 
+def get_visible_length(text):
+    """计算去除ANSI转义序列后的字符串显示长度"""
+    ansi_escape = re.compile(r'\x1b\[[0-9;]*m')
+    return len(ansi_escape.sub('', text))
+
 def get_input_with_suggestions():
     """带建议的输入函数（简化版）"""
     position_cursor_for_input()
     print("> ", end="", flush=True)
     
-    user_input = input()
+    try:
+        user_input = input()
+    except EOFError:
+        return ""
     
     # 如果输入以 / 开头且不完整，显示建议
     if user_input.startswith('/') and len(user_input) > 1:
@@ -55,7 +65,10 @@ def get_input_with_suggestions():
             # 重新获取输入
             position_cursor_for_input()
             print("> ", end="", flush=True)
-            return input()
+            try:
+                return input()
+            except EOFError:
+                return ""
     
     return user_input
 
@@ -66,32 +79,90 @@ def get_input_with_claude_style():
     
     if WINDOWS is None:
         # 不支持实时输入，回退到简单模式
-        return input()
+        try:
+            return input()
+        except EOFError:
+            return ""
     
     user_input = ""
     suggestion_shown = False
+    current_line_length = 0  # 当前行可见字符长度
     
     try:
         while True:
+            # 动态获取终端宽度
+            term_width = shutil.get_terminal_size().columns
+            available_width = term_width - 4  # 保留左右边距各2列
+            
             if WINDOWS:
-                # Windows实现
                 if msvcrt.kbhit():
                     char = msvcrt.getch()
-                    if char == b'\r':  # Enter键
-                        print()  # 换行
+                    if char == b'\r':  # Enter
+                        print()
                         break
-                    elif char == b'\x08':  # Backspace键
+                    elif char == b'\x08':  # Backspace
                         if user_input:
+                            last_char = user_input[-1]
+                            char_length = get_visible_length(last_char)
                             user_input = user_input[:-1]
-                            print('\b \b', end='', flush=True)
+                            
+                            # 重新绘制输入行
+                            term_width = shutil.get_terminal_size().columns
+                            input_box_width = term_width - 4
+                            visible_input = user_input
+                            if get_visible_length(user_input) > (input_box_width - 4):
+                                visible_start = 0
+                                current_length = 0
+                                for i, c in enumerate(user_input):
+                                    c_len = get_visible_length(c)
+                                    if current_length + c_len > (input_box_width - 4):
+                                        visible_start = i
+                                        break
+                                    current_length += c_len
+                                visible_input = user_input[visible_start:]
+                            position_cursor_for_input()
+                            padding = input_box_width - 4 - get_visible_length(visible_input)
+                            if padding < 0:
+                                padding = 0
+                            print("> " + visible_input + " " * padding, end='', flush=True)
+                            print('\r> ' + visible_input, end='', flush=True)
+                            current_line_length = get_visible_length(visible_input)
                             suggestion_shown = False
-                    elif char == b'\x1b':  # ESC键，跳过特殊键序列
+                    elif char == b'\x1b':  # ESC
                         continue
                     else:
                         try:
                             char_str = char.decode('utf-8')
+                            char_length = get_visible_length(char_str)
+                            
                             user_input += char_str
-                            print(char_str, end='', flush=True)
+                            
+                            # 重新绘制输入行，实现滚动显示
+                            term_width = shutil.get_terminal_size().columns
+                            input_box_width = term_width - 4  # 输入框内容区域宽度
+                            visible_input = user_input
+                            if get_visible_length(user_input) > (input_box_width - 4):
+                                # 计算可见起始位置（考虑提示符占位）
+                                visible_start = 0
+                                current_length = 0
+                                for i, c in enumerate(user_input):
+                                    c_len = get_visible_length(c)
+                                    if current_length + c_len > (input_box_width - 4):
+                                        visible_start = i
+                                        break
+                                    current_length += c_len
+                                visible_input = user_input[visible_start:]
+                            
+                            # 重新定位光标并绘制
+                            position_cursor_for_input()
+                            # 计算正确填充空格数量（考虑提示符占位）
+                            padding = input_box_width - 4 - get_visible_length(visible_input)
+                            if padding < 0:
+                                padding = 0
+                            print("> " + visible_input + " " * padding, end='', flush=True)
+                            # 将光标移回正确位置
+                            print('\r> ' + visible_input, end='', flush=True)
+                            current_line_length = get_visible_length(visible_input)
                             
                             # 检查是否需要显示建议
                             if user_input.startswith('/') and len(user_input) > 1 and not suggestion_shown:
@@ -102,15 +173,20 @@ def get_input_with_claude_style():
                         except UnicodeDecodeError:
                             continue
             else:
-                # Linux/Mac实现（简化）
-                return input()
+                try:
+                    return input()
+                except EOFError:
+                    return ""
                 
     except KeyboardInterrupt:
         print()
         return ""
-    except:
-        # 出错时回退到简单输入
-        return input()
+    except Exception as e:
+        print(f"Input error: {str(e)}")
+        try:
+            return input()
+        except EOFError:
+            return ""
     
     return user_input
 

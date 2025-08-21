@@ -5,11 +5,11 @@
 def get_prompt_template(mode, strength):
     """
     获取指定模式和强度的提示词模板
-    
+
     Args:
         mode: 工作模式 ('Ask', 'mostly accepted', 'sprint')
         strength: 提示词强度 ('claude', 'flash', 'qwen', 'mini')
-    
+
     Returns:
         str: 对应的提示词内容
     """
@@ -442,6 +442,15 @@ def get_default_claude_prompt():
 **何时使用：** 需要检查MCP服务器运行状态时
 **格式：** <mcp_server_status></mcp_server_status>
 
+## 🔍 代码搜索工具
+**何时使用：** 需要在整个项目中搜索特定关键词或代码片段时
+**格式：** <code_search><keyword>搜索关键词</keyword></code_search>
+**场景：**
+- 查找特定函数或变量的定义
+- 搜索特定代码模式或实现
+- 定位错误信息相关的代码位置
+- 了解项目中某个功能的实现方式
+
 ### 🚨 工具调用限制
 - **单工具限制**: 每次响应只能调用一个工具，不允许同时调用多个
 - **失败继续**: 工具执行失败时必须继续分析和修复，绝不能结束任务
@@ -591,6 +600,9 @@ def get_sprint_flash_prompt():
 - <mcp_list_resources></mcp_list_resources> - 列出MCP资源
 - <mcp_server_status></mcp_server_status> - 查看MCP状态
 
+## 代码搜索工具
+- <code_search><keyword>搜索关键词</keyword></code_search> - 在项目中搜索代码
+
 # 🚀 工作流程
 1. 立即开始 - 收到需求立即执行
 2. 创建文件 - 实现所需功能
@@ -646,6 +658,9 @@ def get_default_flash_prompt():
 - <mcp_list_resources></mcp_list_resources> - 列出MCP资源
 - <mcp_server_status></mcp_server_status> - 查看MCP状态
 
+## 代码搜索工具
+- <code_search><keyword>搜索关键词</keyword></code_search> - 在项目中搜索代码
+
 # 📋 工作流程
 1. 理解需求 - 分析用户要求
 2. 规划任务 - 创建TODO任务规划
@@ -696,6 +711,9 @@ MCP工具：
 - <mcp_list_tools></mcp_list_tools>
 - <mcp_list_resources></mcp_list_resources>
 - <mcp_server_status></mcp_server_status>
+
+代码搜索工具：
+- <code_search><keyword>搜索关键词</keyword></code_search>
 
 # Sprint工作流程
 1. 收到需求立即开始
@@ -767,6 +785,9 @@ MCP工具：
 - <mcp_list_resources></mcp_list_resources>
 - <mcp_server_status></mcp_server_status>
 
+代码搜索工具：
+- <code_search><keyword>搜索关键词</keyword></code_search>
+
 🚨 工具限制：每次只能调用一个工具，失败时继续，只有task_complete才能结束
 
 # 工作流程
@@ -810,6 +831,7 @@ def get_sprint_mini_prompt():
 - <mcp_list_tools></mcp_list_tools>
 - <mcp_list_resources></mcp_list_resources>
 - <mcp_server_status></mcp_server_status>
+- <code_search><keyword>搜索关键词</keyword></code_search>
 - <task_complete><summary>总结</summary></task_complete>
 
 规则：
@@ -849,6 +871,7 @@ def get_default_mini_prompt():
 - <mcp_list_tools></mcp_list_tools> - 列出MCP工具
 - <mcp_list_resources></mcp_list_resources> - 列出MCP资源
 - <mcp_server_status></mcp_server_status> - MCP状态
+- <code_search><keyword>搜索关键词</keyword></code_search> - 代码搜索
 - <task_complete><summary>总结</summary></task_complete> - 完成
   🚨 调用前必须：分析整个上下文，确认所有需求都已完成
 
@@ -861,3 +884,17 @@ def get_default_mini_prompt():
 4. 完成后用task_complete
 
 流程：理解 → 规划 → 执行 → 测试 → 完成"""
+
+
+
+def get_compression_prompt():
+    """获取用于AI上下文压缩的专用提示词"""
+    return """你是一个高效的AI助手，负责将一段对话历史压缩成一段简洁的摘要。请遵循以下规则：
+
+1.  **保留核心信息**：识别并保留对话中的关键请求、重要决策和最终结果。
+2.  **移除冗余内容**：删除不必要的寒暄、重复的讨论和详细但已过时的代码片段。
+3.  **总结工具使用**：将成功的工具调用链总结为一步或几步操作（例如，“AI创建了`app.py`并添加了基础代码，然后运行测试确认其可以工作”）。
+4.  **关注最终状态**：摘要的重点应该是项目的最终状态或对话结束时的结论，而不是过程中的每一步。
+5.  **简洁明了**：使用清晰、简洁的语言。最终的摘要应该显著短于原始对话历史。
+
+请将以下对话历史压缩成一段摘要："""

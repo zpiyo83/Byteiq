@@ -141,13 +141,10 @@ def process_command(user_input):
     if not user_input.startswith('/'):
         # 不是命令，发送给AI处理
         process_ai_conversation(user_input)
-        print_input_box()
         return True
 
     # 检查模式切换命令
     if mode_manager.handle_mode_switch_command(user_input):
-        # 重新显示输入框
-        print_input_box()
         return True
 
     command_parts = user_input.split()
@@ -218,7 +215,6 @@ def process_command(user_input):
     else:
         print(f"{Fore.RED}未知命令: {command}. 输入 '/help' 或 'help' 查看可用命令{Style.RESET_ALL}")
 
-    # 在每个命令执行后重新显示输入框
+    # 在每个命令执行后打印空行分隔
     print()
-    print_input_box()
     return True
