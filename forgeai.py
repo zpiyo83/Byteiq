@@ -34,7 +34,7 @@ def load_config():
     """加载配置文件"""
     if not os.path.exists(CONFIG_PATH):
         return {}
-    
+
     try:
         with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
             return json.load(f)
@@ -79,9 +79,9 @@ def set_api_key_interactive():
     """交互式设置API密钥"""
     print(f"\n{Fore.LIGHTCYAN_EX}设置API密钥{Style.RESET_ALL}")
     print(f"请输入您的API密钥（输入为空则保持不变）:")
-    
+
     api_key = input(f"{Fore.WHITE}API Key > {Style.RESET_ALL}").strip()
-    
+
     if api_key:
         cfg = load_config()
         cfg["api_key"] = api_key
@@ -121,10 +121,9 @@ from src.ai_client import ai_client
 
 # 使用统一的工具处理器（包含权限控制）
 from src.ai_tools import ai_tool_processor
-from src.thinking_animation import start_thinking, stop_thinking
 from src.keyboard_handler import (
-    start_task_monitoring, stop_task_monitoring, 
-    show_esc_hint, is_task_interrupted, reset_interrupt_flag
+    start_task_monitoring, stop_task_monitoring,
+    is_task_interrupted, reset_interrupt_flag
 )
 
 def process_ai_conversation(user_input):
@@ -137,10 +136,10 @@ def process_ai_conversation(user_input):
 
     # 重置中断标志
     reset_interrupt_flag()
-    
+
     # 发送消息给AI（已集成思考动画和ESC监控）
     ai_response = ai_client.send_message(user_input)
-    
+
     # 检查是否在发送阶段被中断
     if is_task_interrupted():
         print(f"\n{Fore.YELLOW}任务已被用户中断{Style.RESET_ALL}")
@@ -150,18 +149,18 @@ def process_ai_conversation(user_input):
     max_iterations = 50  # 🚨 最大迭代次数提升到50次
     iteration_count = 0
     recent_operations = []  # 记录最近的操作，用于检测重复
-    
+
     while True:
         # 检查是否被中断
         if is_task_interrupted():
             print(f"\n{Fore.YELLOW}任务处理已被用户中断{Style.RESET_ALL}")
             break
-            
+
         iteration_count += 1
         if iteration_count > max_iterations:
             print(f"\n{Fore.RED}警告: AI处理超过最大迭代次数({max_iterations})，停止处理{Style.RESET_ALL}")
             break
-            
+
         result = ai_tool_processor.process_response(ai_response)
 
         # 检测重复操作
@@ -216,6 +215,15 @@ def process_ai_conversation(user_input):
 def handle_special_commands(user_input):
     """处理特殊命令"""
     user_input = user_input.strip()
+
+    # 压缩命令
+    if user_input.lower() in ['/compact']:
+        from src.compression import show_compression_menu, compress_context
+        compression_type = show_compression_menu()
+        if compression_type:
+            compress_context(compression_type)
+        return True
+
 
     # 设置命令
     if user_input.lower() in ['/s', '/setting', '/settings']:
@@ -502,6 +510,9 @@ def _list_mcp_resources():
         print()
 
 # ========== UI界面 ==========
+# 导入UI模块
+from src.ui import position_cursor_for_input, print_input_box
+
 def print_header():
     """打印程序头部"""
     print(f"{Fore.LIGHTCYAN_EX}╭{'─' * 58}╮{Style.RESET_ALL}")
@@ -526,18 +537,6 @@ def print_status():
         perm_text += f" | 需确认: {', '.join(permissions['confirm'][:2])}"
 
     print(f"{mode_color}{mode_text}{perm_text}{Style.RESET_ALL}")
-
-def print_input_box():
-    """打印输入框"""
-    # 输入框
-    print(f"{Fore.LIGHTBLACK_EX}╭{'─' * 78}╮{Style.RESET_ALL}")
-    print(f"{Fore.LIGHTBLACK_EX}│{' ' * 78}│{Style.RESET_ALL}")
-    print(f"{Fore.LIGHTBLACK_EX}╰{'─' * 78}╯{Style.RESET_ALL}")
-
-    # 当前模式提示文字（灰色）
-    from src.modes import mode_manager
-    current_mode = mode_manager.get_current_mode()
-    print(f"{Fore.LIGHTBLACK_EX}? {current_mode}{Style.RESET_ALL}")
 
 def auto_start_mcp_servers():
     """自动启动MCP服务器"""
@@ -591,16 +590,35 @@ def auto_start_mcp_servers():
     except Exception as e:
         print(f"{Fore.YELLOW}⚠️ MCP服务器启动失败: {e}{Style.RESET_ALL}")
 
+def initialize_theme():
+    """初始化主题设置"""
+    try:
+        from src.theme import theme_manager
+        from src.config import load_config
+        
+        # 加载配置
+        cfg = load_config()
+        
+        # 获取主题设置
+        theme = cfg.get("theme", "default")
+        
+        # 设置主题
+        theme_manager.set_theme(theme)
+        
+    except Exception as e:
+        # 如果主题初始化失败，使用默认主题
+        pass
+
 # ========== 主程序 ==========
 def main():
     """主程序入口"""
     try:
-        # 打印头部
-        print_header()
-        print()
-
-        # 显示初始状态
-        print_status()
+        # 初始化主题设置
+        initialize_theme()
+        
+        # 打印欢迎界面
+        from src.ui import print_welcome_screen
+        print_welcome_screen()
         print()
 
         # 自动启动MCP服务器
@@ -612,9 +630,12 @@ def main():
                 # 显示输入框
                 print_input_box()
 
+                # 定位光标到输入框内
+                position_cursor_for_input()
+
                 # 获取用户输入（安全版本）
                 try:
-                    user_input = input(f"{Fore.WHITE}> {Style.RESET_ALL}").strip()
+                    user_input = input("").strip()
                 except EOFError:
                     # 处理EOF错误（比如Ctrl+Z或管道输入结束）
                     try:
@@ -678,7 +699,6 @@ def main():
     finally:
         # 清理资源
         try:
-            stop_thinking()
             stop_task_monitoring()
         except Exception:
             pass
