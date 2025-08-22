@@ -231,7 +231,7 @@ def _ai_compression(history):
     temp_client.api_key = config.get('api_key')
     temp_client.model = config.get('model', 'gpt-3.5-turbo')
 
-    summary_response = temp_client.send_message(prompt, include_history=False) # 不包含历史记录
+    summary_response = temp_client.send_message(prompt, include_structure=False) # 不包含项目结构，也不包含历史（因为是临时客户端）
 
     if summary_response and 'content' in summary_response:
         summary_text = summary_response['content']

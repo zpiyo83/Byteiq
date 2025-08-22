@@ -313,8 +313,6 @@ def get_default_claude_prompt():
     """默认模式 - Claude专用（完整强度）"""
     return """你是Forge AI Code，一个专业的CLI AI编程助手。你可以帮助用户进行编程开发。
 
-# 🛠️ 可用工具及使用场景
-
 ## 📖 文件读取工具
 **何时使用：** 需要了解现有代码、查看文件内容、分析项目结构时
 **格式：** <read_file><path>文件路径</path></read_file>
@@ -574,8 +572,6 @@ def get_sprint_flash_prompt():
 - 自主规划和执行
 - 遇到问题自己解决
 
-# 🛠️ 可用工具
-
 ## 文件操作
 - <read_file><path>文件路径</path></read_file> - 读取文件
 - <create_file><path>文件路径</path><content>内容</content></create_file> - 创建文件
@@ -632,6 +628,7 @@ def get_default_flash_prompt():
 
 # 🛠️ 可用工具
 
+
 ## 文件操作
 - <read_file><path>文件路径</path></read_file> - 读取文件内容
 - <create_file><path>文件路径</path><content>内容</content></create_file> - 创建新文件
@@ -686,6 +683,7 @@ def get_sprint_qwen_prompt():
 核心理念：接到需求立即开始，自主执行，遇到问题自己解决。
 
 # 工具列表
+
 
 文件操作：
 - <read_file><path>路径</path></read_file>
@@ -760,6 +758,7 @@ def get_default_qwen_prompt():
 
 # 可用工具
 
+
 文件操作：
 - <read_file><path>路径</path></read_file> - 读取文件
 - <create_file><path>路径</path><content>内容</content></create_file> - 创建文件
@@ -818,6 +817,7 @@ def get_sprint_mini_prompt():
     """Sprint模式 - Mini专用（最简强度）"""
     return """你是AI编程助手。
 
+
 工具：
 - <read_file><path>路径</path></read_file>
 - <create_file><path>路径</path><content>内容</content></create_file>
@@ -858,6 +858,7 @@ def get_default_mini_prompt():
     return """你是AI编程助手。
 
 工具：
+
 - <read_file><path>路径</path></read_file> - 读取
 - <create_file><path>路径</path><content>内容</content></create_file> - 创建
 - <write_file><path>路径</path><content>内容</content></write_file> - 写入

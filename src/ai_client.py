@@ -9,7 +9,7 @@ import threading
 import time
 import queue
 from concurrent.futures import ThreadPoolExecutor, Future
-from .thinking_animation import show_dot_cycle_animation, start_thinking, stop_thinking
+from .thinking_animation import start_thinking, stop_thinking
 from .keyboard_handler import (
     start_task_monitoring, stop_task_monitoring,
     is_task_interrupted, reset_interrupt_flag,
@@ -357,10 +357,8 @@ class AIClient:
                 if len(self.conversation_history) > 20:
                     self.conversation_history = self.conversation_history[-20:]
 
-                # 根据调试配置格式化响应
-                # 显示短暂的点循环动画
-                show_dot_cycle_animation("AI", 0.3)
-                return format_ai_response(ai_response, result)
+                # 返回原始响应，由调用者决定如何格式化
+                return ai_response
             else:
                 return f"API请求失败: {response.status_code} - {response.text}"
 

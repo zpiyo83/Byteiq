@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python3
 """
 Forge AI Code - 主程序（清理版）
@@ -6,10 +7,7 @@ Forge AI Code - 主程序（清理版）
 import os
 import sys
 import json
-import requests
-import threading
-import time
-import re
+
 from colorama import Fore, Style, init
 
 # 初始化colorama以支持Windows终端颜色
@@ -123,7 +121,7 @@ from src.ai_client import ai_client
 from src.ai_tools import ai_tool_processor
 from src.input_handler import get_input_with_claude_style
 from src.keyboard_handler import (
-    start_task_monitoring, stop_task_monitoring,
+    stop_task_monitoring,
     is_task_interrupted, reset_interrupt_flag
 )
 
@@ -153,6 +151,12 @@ def process_ai_conversation(user_input):
     # 检查是否在发送阶段被中断
     if is_task_interrupted():
         print(f"\n{Fore.YELLOW}任务已被用户中断{Style.RESET_ALL}")
+        return
+
+    # 检查是否启用了原始输出模式
+    from src.debug_config import is_raw_output_enabled
+    if is_raw_output_enabled():
+        print(f"\n{ai_response}")
         return
 
     # 处理AI响应和工具调用（添加循环计数器和重复检测）
@@ -226,6 +230,19 @@ def handle_special_commands(user_input):
     """处理特殊命令"""
     user_input = user_input.strip()
 
+
+    # 调试命令
+    if user_input.lower().startswith('/debug'):
+        parts = user_input.split()
+        if len(parts) > 1 and parts[1].lower() == 'raw':
+            from src.debug_config import toggle_raw_output, is_raw_output_enabled
+            toggle_raw_output()
+            new_state = "启用" if is_raw_output_enabled() else "禁用"
+            print(f"{Fore.YELLOW}✓ 原始输出模式已{new_state}。{Style.RESET_ALL}")
+        else:
+            print(f"{Fore.YELLOW}未知调试命令。可用命令: /debug raw{Style.RESET_ALL}")
+        return True
+
     # 压缩命令
     if user_input.lower() in ['/compact']:
         from src.compression import show_compression_menu, compress_context
@@ -279,8 +296,7 @@ def handle_mcp_command():
     """处理MCP命令"""
     try:
         from src.mcp_config import mcp_config
-        from src.mcp_client import mcp_client
-        import asyncio
+
 
         print(f"\n{Fore.CYAN}🔧 MCP (Model Context Protocol) 管理{Style.RESET_ALL}")
         print("=" * 60)
@@ -611,17 +627,17 @@ def initialize_theme():
     try:
         from src.theme import theme_manager
         from src.config import load_config
-        
+
         # 加载配置
         cfg = load_config()
-        
+
         # 获取主题设置
         theme = cfg.get("theme", "default")
-        
+
         # 设置主题
         theme_manager.set_theme(theme)
-        
-    except Exception as e:
+
+    except Exception:
         # 如果主题初始化失败，使用默认主题
         pass
 
@@ -631,7 +647,7 @@ def main():
     try:
         # 初始化主题设置
         initialize_theme()
-        
+
         # 打印欢迎界面
         from src.ui import print_welcome_screen
         print_welcome_screen()

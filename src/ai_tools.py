@@ -75,12 +75,28 @@ class AIToolProcessor:
             if matches:
                 tools_found.append((tool_name, matches))
 
-        # 如果发现多个工具，只执行第一个并警告
-        if len(tools_found) > 1:
-            tool_result = f"⚠️ 检测到多个工具调用，根据单工具限制，只执行第一个工具: {tools_found[0][0]}\n"
-            tool_result += f"被忽略的工具: {', '.join([t[0] for t in tools_found[1:]])}\n"
-            tool_result += "请在下次响应中单独调用其他工具。"
-            tools_found = [tools_found[0]]  # 只保留第一个工具
+        # 新增逻辑：检查 task_complete 是否与其他工具混合调用
+        tool_names_in_call = [t[0] for t in tools_found]
+        if 'task_complete' in tool_names_in_call and len(tool_names_in_call) > 1:
+            # 如果混合调用，则不执行任何工具，并向AI发送警告
+            print(f"{Fore.YELLOW}系统提示: 检测到 task_complete 与其他工具混合调用。已阻止执行并向AI发送修正指令。{Style.RESET_ALL}")
+
+            # 准备要发送给AI的修正指令
+            correction_message = (
+                "You have violated a tool usage rule: "
+                "You cannot call `task_complete` in the same turn as other tools. "
+                "If the task is finished, call `task_complete` by itself in the next turn with a summary. "
+                "If the task is not finished, call the necessary tools without `task_complete`. "
+                "Please correct your plan and proceed."
+            )
+
+            # 返回一个特殊的结果，让主循环知道需要用这个新消息再次调用AI
+            return {
+                'display_text': "AI 行为修正：检测到不当的工具组合调用。",
+                'has_tool': True,  # 欺骗主循环，让它认为有工具结果
+                'tool_result': f"系统修正指令: {correction_message}", # 将修正指令作为“结果”
+                'should_continue': True # 强制继续对话
+            }
 
         for tool_name, matches in tools_found:
             if matches:
@@ -180,11 +196,15 @@ class AIToolProcessor:
         # 🚨 强制继续判断逻辑 - 只有task_complete才能结束
         should_continue = False
         if tool_found:
-            # 🚨 唯一的停止条件：task_complete工具调用
+            # 唯一的停止条件：task_complete工具调用
             if 'task_complete' in ai_response:
                 should_continue = False
             else:
-                # 🚨 其他所有情况都必须继续，包括工具执行失败
+                # 其他所有情况都必须继续，包括工具执行失败
+                should_continue = True
+        else:
+            # 如果没有找到工具，但AI的回复中包含了继续的意图，也应该继续
+            if any(keyword in ai_response.lower() for keyword in ['继续', '接下来', '然后', '下一步', 'continue', 'next']):
                 should_continue = True
 
         return {

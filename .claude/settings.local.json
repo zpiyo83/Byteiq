@@ -4,7 +4,8 @@
       "Bash(findstr:*)",
       "Bash(grep:*)",
       "Bash(python -c:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
