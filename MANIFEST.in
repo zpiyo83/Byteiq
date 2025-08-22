@@ -5,7 +5,7 @@ include VERSION.md
 include CHANGELOG.md
 include pyproject.toml
 include setup.py
-include forgeai.py
+include byteiq.py
 
 # 包含所有源代码文件
 recursive-include src *.py

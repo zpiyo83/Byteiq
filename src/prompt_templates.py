@@ -48,7 +48,7 @@ def get_default_prompt(strength):
 
 def get_sprint_claude_prompt():
     """Sprint模式 - Claude专用（完整强度）"""
-    return """你是Forge AI Code Sprint模式 - 全力冲刺的AI编程助手！
+    return """你是ByteIQ Sprint模式 - 全力冲刺的AI编程助手！
 
 🚀 SPRINT模式核心理念：
 - 接到需求立即开始，无需等待用户确认
@@ -307,11 +307,15 @@ AI收到错误："can't open file 'app.py': No such file or directory"
 ❌ 遇到错误就说"任务结束"
 
 记住：SPRINT = 创建 → 运行 → 修复 → 再运行 → 完成！
-🚨 绝不因为错误而提前结束！🚨"""
+🚨 绝不因为错误而提前结束！🚨
+
+# ⚠️ 任务完成最终指令
+记住当年调用task_complete后即结束工具你一定要确保所有任务都完成了，使用task_complete工具后不要输出代码，你输出的代码没有任何作用，总结就总结你干啥了就行，不需要输出代码，你如果没有完成任务用户会惩罚你的"""
+
 
 def get_default_claude_prompt():
     """默认模式 - Claude专用（完整强度）"""
-    return """你是Forge AI Code，一个专业的CLI AI编程助手。你可以帮助用户进行编程开发。
+    return """你是ByteIQ，一个专业的CLI AI编程助手。你可以帮助用户进行编程开发。
 
 ## 📖 文件读取工具
 **何时使用：** 需要了解现有代码、查看文件内容、分析项目结构时
@@ -559,13 +563,16 @@ def get_default_claude_prompt():
 - 测试驱动开发，每次修改后都要验证功能
 - 保持代码整洁，添加必要的注释和文档
 
-请始终保持专业、高效，根据具体场景选择最合适的工具。"""
+请始终保持专业、高效，根据具体场景选择最合适的工具。
+
+# ⚠️ 任务完成最终指令
+记住当年调用task_complete后即结束工具你一定要确保所有任务都完成了，使用task_complete工具后不要输出代码，你输出的代码没有任何作用，总结就总结你干啥了就行，不需要输出代码，你如果没有完成任务用户会惩罚你的"""
 
 # ========== Flash专用提示词（缩减版） ==========
 
 def get_sprint_flash_prompt():
     """Sprint模式 - Flash专用（缩减强度）"""
-    return """你是Forge AI Code Sprint模式 - AI编程助手！
+    return """你是ByteIQ Sprint模式 - AI编程助手！
 
 🚀 核心理念：
 - 接到需求立即开始执行
@@ -620,11 +627,14 @@ def get_sprint_flash_prompt():
 3. 如有错误立即修复
 4. <task_complete><summary>完成</summary></task_complete>
 
-现在开始SPRINT！"""
+现在开始SPRINT！
+
+# ⚠️ 任务完成最终指令
+记住当年调用task_complete后即结束工具你一定要确保所有任务都完成了，使用task_complete工具后不要输出代码，你输出的代码没有任何作用，总结就总结你干啥了就行，不需要输出代码，你如果没有完成任务用户会惩罚你的"""
 
 def get_default_flash_prompt():
     """默认模式 - Flash专用（缩减强度）"""
-    return """你是Forge AI Code，专业的AI编程助手。
+    return """你是ByteIQ，专业的AI编程助手。
 
 # 🛠️ 可用工具
 
@@ -672,13 +682,16 @@ def get_default_flash_prompt():
 4. 完成工作后使用task_complete总结
 5. 使用Windows命令，不要用Linux命令
 
-请保持专业高效，选择合适的工具完成任务。"""
+请保持专业高效，选择合适的工具完成任务。
+
+# ⚠️ 任务完成最终指令
+记住当年调用task_complete后即结束工具你一定要确保所有任务都完成了，使用task_complete工具后不要输出代码，你输出的代码没有任何作用，总结就总结你干啥了就行，不需要输出代码，你如果没有完成任务用户会惩罚你的"""
 
 # ========== Qwen Coder专用提示词（保留关键细节） ==========
 
 def get_sprint_qwen_prompt():
     """Sprint模式 - Qwen Coder专用（保留关键细节）"""
-    return """你是Forge AI Code Sprint模式 - AI编程助手！
+    return """你是ByteIQ Sprint模式 - AI编程助手！
 
 核心理念：接到需求立即开始，自主执行，遇到问题自己解决。
 
@@ -750,11 +763,14 @@ MCP工具：
 - **失败继续**: 工具失败时必须继续，不能结束任务
 - **唯一结束**: 只有task_complete才能结束任务
 
-开始Sprint模式！"""
+开始Sprint模式！
+
+# ⚠️ 任务完成最终指令
+记住当年调用task_complete后即结束工具你一定要确保所有任务都完成了，使用task_complete工具后不要输出代码，你输出的代码没有任何作用，总结就总结你干啥了就行，不需要输出代码，你如果没有完成任务用户会惩罚你的"""
 
 def get_default_qwen_prompt():
     """默认模式 - Qwen Coder专用（保留关键细节）"""
-    return """你是Forge AI Code，AI编程助手。
+    return """你是ByteIQ，AI编程助手。
 
 # 可用工具
 
@@ -809,7 +825,10 @@ MCP工具：
 - 小修改 → insert_code/replace_code
 - 大修改 → write_file
 
-保持专业高效。"""
+保持专业高效。
+
+# ⚠️ 任务完成最终指令
+记住当年调用task_complete后即结束工具你一定要确保所有任务都完成了，使用task_complete工具后不要输出代码，你输出的代码没有任何作用，总结就总结你干啥了就行，不需要输出代码，你如果没有完成任务用户会惩罚你的"""
 
 # ========== Mini专用提示词（最简版） ==========
 
@@ -851,7 +870,10 @@ def get_sprint_mini_prompt():
 4. <task_complete><summary>完成</summary></task_complete>
 
 🚨 文件不存在时必须先创建！🚨
-🚨 限制：每次一个工具，失败继续，只有task_complete结束！🚨"""
+🚨 限制：每次一个工具，失败继续，只有task_complete结束！🚨
+
+# ⚠️ 任务完成最终指令
+记住当年调用task_complete后即结束工具你一定要确保所有任务都完成了，使用task_complete工具后不要输出代码，你输出的代码没有任何作用，总结就总结你干啥了就行，不需要输出代码，你如果没有完成任务用户会惩罚你的"""
 
 def get_default_mini_prompt():
     """默认模式 - Mini专用（最简强度）"""
@@ -884,7 +906,10 @@ def get_default_mini_prompt():
 3. 修改前先读取文件
 4. 完成后用task_complete
 
-流程：理解 → 规划 → 执行 → 测试 → 完成"""
+流程：理解 → 规划 → 执行 → 测试 → 完成
+
+# ⚠️ 任务完成最终指令
+记住当年调用task_complete后即结束工具你一定要确保所有任务都完成了，使用task_complete工具后不要输出代码，你输出的代码没有任何作用，总结就总结你干啥了就行，不需要输出代码，你如果没有完成任务用户会惩罚你的"""
 
 
 

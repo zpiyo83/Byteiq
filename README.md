@@ -1,4 +1,4 @@
-# Forge AI Code
+# ByteIQ
 
 智能CLI AI编程助手 - 让AI帮你写代码！
 
@@ -19,9 +19,9 @@
 ## 📁 项目结构
 
 ```
-ForgeAI Code/
+ByteIQ/
 ├── main.py                 # 🚀 主程序入口
-├── forgeai.py             # 📄 原始版本（保留）
+├── byteiq.py             # 📄 主程序
 ├── requirements.txt       # 📦 依赖列表
 ├── test_ai.py            # 🧪 AI功能测试
 └── src/                  # 📂 核心模块
@@ -40,7 +40,7 @@ ForgeAI Code/
 ### 基础对话
 ```
 > 你好
-AI: 你好！我是Forge AI Code，你的编程助手。我可以帮你创建项目、写代码、调试问题等。
+AI: 你好！我是ByteIQ，你的编程助手。我可以帮你创建项目、写代码、调试问题等。
 
 > 我想做一个贪吃蛇游戏
 AI: 我来帮你创建贪吃蛇游戏！让我先查看项目结构...
@@ -73,14 +73,14 @@ pip install -r requirements.txt
 
 ### 2. 配置API密钥
 ```bash
-python main.py
+python byteiq.py
 # 输入 /s 进入设置
 # 选择 2 设置API密钥
 ```
 
 ### 3. 开始使用
 ```bash
-python main.py
+python byteiq.py
 # 直接输入你的需求，AI会自动处理！
 ```
 

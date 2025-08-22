@@ -194,8 +194,12 @@ class AIClient:
         """执行网络请求（在子线程中运行）"""
         try:
             response = requests.post(self.api_url, json=data, headers=headers, timeout=60)
+            if response.status_code == 401:
+                return {"error": "API密钥无效或未授权。请检查您的密钥。", "status_code": 401}
             response.raise_for_status()
             return response.json()
+        except requests.exceptions.HTTPError as e:
+            return {"error": f"HTTP 错误: {e.response.status_code} - {e.response.text}"}
         except Exception as e:
             return {"error": str(e)}
 
@@ -260,6 +264,8 @@ class AIClient:
 
                 if is_done:
                     if isinstance(result, dict) and "error" in result:
+                        if result.get("status_code") == 401:
+                            return f"认证失败: {result['error']}"
                         return f"网络错误: {result['error']}"
 
                     # 处理成功响应
@@ -344,6 +350,9 @@ class AIClient:
             if is_task_interrupted():
                 reset_interrupt_flag()
                 return "任务已被用户中断"
+
+            if response.status_code == 401:
+                return f"认证失败: API密钥无效或未授权。请检查您的密钥。 - {response.text}"
 
             if response.status_code == 200:
                 result = response.json()

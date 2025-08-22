@@ -218,7 +218,7 @@ def process_command(user_input):
 
     # 退出命令
     if command in ['/exit', '/quit']:
-        print(f"{Fore.LIGHTCYAN_EX}再见！感谢使用 Forge AI Code!{Style.RESET_ALL}")
+        print(f"{Fore.LIGHTCYAN_EX}再见！感谢使用 ByteIQ!{Style.RESET_ALL}")
         return False
 
     # 帮助命令

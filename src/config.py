@@ -7,8 +7,8 @@ import json
 import getpass
 from colorama import Fore, Style
 
-CONFIG_PATH = os.path.join(os.path.expanduser("~"), ".forgeai_config.json")
-DEFAULT_API_URL = "https://www.lumjf.com/v1/chat/completions"
+CONFIG_PATH = os.path.join(os.path.expanduser("~"), ".byteiq_config.json")
+DEFAULT_API_URL = "https://api-inference.modelscope.cn/v1/chat/completions"
 
 def load_config():
     """加载配置文件"""
@@ -196,7 +196,7 @@ def show_settings():
         prompt_strength_status = cfg.get("prompt_strength", "claude")
         theme_status = cfg.get("theme", "default")
 
-        print(f"\n{Fore.LIGHTCYAN_EX}Forge AI Code 设置{Style.RESET_ALL}")
+        print(f"\n{Fore.LIGHTCYAN_EX}ByteIQ 设置{Style.RESET_ALL}")
         print(f"{'='*60}")
         print(f"API Key: {api_key_status}")
         print(f"语言: {language_status}")

@@ -15,7 +15,7 @@ class MCPConfig:
         # 使用主配置文件而不是单独的MCP配置文件
         self.config_file = config_file or os.path.join(
             os.path.expanduser("~"),
-            ".forgeai_config.json"
+            ".byteiq_config.json"
         )
         self.config = self.load_config()
     

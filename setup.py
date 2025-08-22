@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Forge AI Code 安装配置
+ByteIQ 安装配置
 """
 
 from setuptools import setup, find_packages
@@ -12,14 +12,14 @@ with open("requirements.txt", "r", encoding="utf-8") as fh:
     requirements = [line.strip() for line in fh if line.strip() and not line.startswith("#")]
 
 setup(
-    name="forge-ai-code",
-    version='1.3.0',
-    author="Forge AI Team",
-    author_email="support@forgeai.dev",
+    name="byteiq",
+    version='1.3.2',
+    author="ByteIQ Team",
+    author_email="support@byteiq.dev",
     description="智能AI编程助手 - 支持多种AI模型的自适应提示词系统，新增删除文件工具和工具调用限制",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/forge-ai/forge-ai-code",
+    url="https://github.com/byteiq/byteiq",
     packages=find_packages(),
     classifiers=[
         "Development Status :: 4 - Beta",
@@ -47,8 +47,8 @@ setup(
     },
     entry_points={
         "console_scripts": [
-            "forge-ai-code=forgeai:main",
-            "fac=forgeai:main",  # 简短别名
+            "byteiq=byteiq:main",
+            "ByteIQ=byteiq:main",  # 大写别名
         ],
     },
     include_package_data=True,
@@ -64,10 +64,10 @@ setup(
         "assistant", "automation", "development", "cli", "tool"
     ],
     project_urls={
-        "Bug Reports": "https://github.com/forge-ai/forge-ai-code/issues",
-        "Source": "https://github.com/forge-ai/forge-ai-code",
-        "Documentation": "https://forge-ai-code.readthedocs.io/",
-        "Homepage": "https://forge-ai-code.dev/",
+        "Bug Reports": "https://github.com/byteiq/byteiq/issues",
+        "Source": "https://github.com/byteiq/byteiq",
+        "Documentation": "https://byteiq.readthedocs.io/",
+        "Homepage": "https://byteiq.dev/",
     },
     zip_safe=False,
 )

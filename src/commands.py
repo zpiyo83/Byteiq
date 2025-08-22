@@ -53,7 +53,7 @@ def filter_commands(partial_input):
 def show_help():
     """显示帮助信息"""
     help_text = f"""
-{Fore.LIGHTCYAN_EX}Forge AI Code - 命令帮助{Style.RESET_ALL}
+{Fore.LIGHTCYAN_EX}ByteIQ - 命令帮助{Style.RESET_ALL}
 
 {Fore.CYAN}基础命令:{Style.RESET_ALL}
   {Fore.WHITE}/help{Style.RESET_ALL}     - 显示此帮助信息
@@ -109,7 +109,7 @@ def show_status():
     current_mode = mode_manager.get_current_mode()
     
     status_text = f"""
-{Fore.LIGHTCYAN_EX}Forge AI Code - 当前状态{Style.RESET_ALL}
+{Fore.LIGHTCYAN_EX}ByteIQ - 当前状态{Style.RESET_ALL}
 
 {Fore.CYAN}系统信息:{Style.RESET_ALL}
   当前目录: {Fore.WHITE}{os.getcwd()}{Style.RESET_ALL}

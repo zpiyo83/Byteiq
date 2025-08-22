@@ -1,7 +1,7 @@
 
 #!/usr/bin/env python3
 """
-Forge AI Code - 主程序（清理版）
+ByteIQ - 主程序（清理版）
 """
 
 import os
@@ -26,7 +26,7 @@ def handle_mode_switch_command(user_input):
     return False
 
 # ========== 配置管理 ==========
-CONFIG_PATH = os.path.join(os.path.expanduser("~"), ".forgeai_config.json")
+CONFIG_PATH = os.path.join(os.path.expanduser("~"), ".byteiq_config.json")
 
 def load_config():
     """加载配置文件"""
@@ -287,7 +287,7 @@ def handle_special_commands(user_input):
 
     # 退出命令
     if user_input.lower() in ['/exit', '/quit', '/q']:
-        print(f"{Fore.CYAN}再见！感谢使用 Forge AI Code{Style.RESET_ALL}")
+        print(f"{Fore.CYAN}再见！感谢使用 ByteIQ{Style.RESET_ALL}")
         return "exit"
 
     return False
@@ -548,7 +548,7 @@ def _list_mcp_resources():
 def print_header():
     """打印程序头部"""
     print(f"{Fore.LIGHTCYAN_EX}╭{'─' * 58}╮{Style.RESET_ALL}")
-    print(f"{Fore.LIGHTCYAN_EX}│{' ' * 18}Forge AI Code{' ' * 28}│{Style.RESET_ALL}")
+    print(f"{Fore.LIGHTCYAN_EX}│{' ' * 22}ByteIQ{' ' * 32}│{Style.RESET_ALL}")
     print(f"{Fore.LIGHTCYAN_EX}│{' ' * 15}智能编程助手 v2.0{' ' * 23}│{Style.RESET_ALL}")
     print(f"{Fore.LIGHTCYAN_EX}╰{'─' * 58}╯{Style.RESET_ALL}")
 

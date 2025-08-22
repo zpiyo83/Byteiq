@@ -4,10 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 🚀 Core Architecture
 
-Forge AI Code is a CLI-based AI programming assistant that enables AI to interact with the file system and execute commands. The system is built around several key components:
+ByteIQ is a CLI-based AI programming assistant that enables AI to interact with the file system and execute commands. The system is built around several key components:
 
 ### Main Entry Point
-- `forgeai.py` - The main application entry point that handles user interaction, AI communication, and tool processing
+- `byteiq.py` - The main application entry point that handles user interaction, AI communication, and tool processing
 
 ### Core Modules
 - `src/ai_client.py` - Handles communication with AI APIs, including conversation history and request/response processing
@@ -27,7 +27,7 @@ pip install -r requirements.txt
 
 ### Running the Application
 ```bash
-python forgeai.py
+python byteiq.py
 ```
 
 ### Building Distribution
@@ -69,8 +69,8 @@ Different prompt templates for various AI models:
 
 ## 📁 Project Structure
 ```
-ForgeAI Code/
-├── forgeai.py              # Main entry point
+ByteIQ/
+├── byteiq.py              # Main entry point
 ├── requirements.txt        # Dependencies
 ├── setup.py               # Installation configuration
 ├── pyproject.toml         # Modern Python packaging
