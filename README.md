@@ -1,6 +1,6 @@
 # Forge AI Code
 
-🤖 智能CLI AI编程助手 - 让AI帮你写代码！
+智能CLI AI编程助手 - 让AI帮你写代码！
 
 ## 🚀 核心特性
 
@@ -25,7 +25,7 @@ ForgeAI Code/
 ├── requirements.txt       # 📦 依赖列表
 ├── test_ai.py            # 🧪 AI功能测试
 └── src/                  # 📂 核心模块
-    ├── ai_client.py      # 🤖 AI客户端
+    ├── ai_client.py      # AI客户端
     ├── ai_tools.py       # 🛠️ AI工具系统
     ├── config.py         # ⚙️ 配置管理
     ├── modes.py          # 🎯 工作模式
@@ -40,10 +40,10 @@ ForgeAI Code/
 ### 基础对话
 ```
 > 你好
-🤖 AI: 你好！我是Forge AI Code，你的编程助手。我可以帮你创建项目、写代码、调试问题等。
+AI: 你好！我是Forge AI Code，你的编程助手。我可以帮你创建项目、写代码、调试问题等。
 
 > 我想做一个贪吃蛇游戏
-🤖 AI: 我来帮你创建贪吃蛇游戏！让我先查看项目结构...
+AI: 我来帮你创建贪吃蛇游戏！让我先查看项目结构...
 
 创建文件 snake_game.py:
 import pygame

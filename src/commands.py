@@ -11,7 +11,8 @@ def get_available_commands():
     """获取所有可用命令"""
     return [
         "/help", "/status", "/clear", "/pwd", "/ls", "/cd", "/exit",
-        "/s", "/mode", "/clear-history", "/todo", "/todos", "/compact"
+        "/s", "/mode", "/clear-history", "/todo", "/todos", "/compact",
+        "/hacpp"
     ]
 
 def get_command_descriptions():
@@ -29,7 +30,8 @@ def get_command_descriptions():
         "/clear-history": "清除AI对话历史",
         "/todo": "TODO任务管理",
         "/todos": "显示TODO列表",
-        "/compact": "压缩上下文"
+        "/compact": "压缩上下文",
+        "/hacpp": "HACPP双AI协作模式"
     }
 
 def filter_commands(partial_input):
@@ -68,6 +70,12 @@ def show_help():
   {Fore.WHITE}/mode{Style.RESET_ALL}     - 切换工作模式
   {Fore.WHITE}/clear-history{Style.RESET_ALL} - 清除AI对话历史
   {Fore.WHITE}/compact{Style.RESET_ALL}      - 压缩上下文
+
+{Fore.MAGENTA}HACPP模式 (双AI协作):{Style.RESET_ALL}
+  {Fore.WHITE}/HACPP{Style.RESET_ALL}        - 激活HACPP模式（需要测试码）
+  {Fore.WHITE}/HACPP model{Style.RESET_ALL}  - 设置便宜模型名称
+  {Fore.WHITE}/HACPP status{Style.RESET_ALL} - 显示HACPP模式状态
+  {Fore.WHITE}/HACPP off{Style.RESET_ALL}    - 关闭HACPP模式
 
 {Fore.CYAN}TODO任务管理:{Style.RESET_ALL}
   {Fore.WHITE}/todos{Style.RESET_ALL}    - 显示TODO任务列表

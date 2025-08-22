@@ -135,6 +135,15 @@ def process_ai_conversation(user_input):
         print(f"{Fore.RED}错误：请先设置API密钥。使用 /s 命令进入设置。{Style.RESET_ALL}")
         return
 
+    # 检查是否处于HACPP模式
+    from src.modes import hacpp_mode
+    from src.hacpp_client import hacpp_client
+
+    if hacpp_mode.is_hacpp_active():
+        print(f"{Fore.MAGENTA}🚀 HACPP模式激活 - 双AI协作处理{Style.RESET_ALL}")
+        hacpp_client.process_hacpp_request(user_input)
+        return
+
     # 重置中断标志
     reset_interrupt_flag()
 
@@ -250,6 +259,13 @@ def handle_special_commands(user_input):
     # MCP命令
     if user_input.lower() in ['/mcp', '/m', '/model-context-protocol']:
         handle_mcp_command()
+        return True
+
+    # HACPP模式命令
+    if user_input.lower().startswith('/hacpp'):
+        from src.command_processor import handle_hacpp_command
+        command_parts = user_input.split()
+        handle_hacpp_command(command_parts)
         return True
 
     # 退出命令
@@ -511,8 +527,7 @@ def _list_mcp_resources():
         print()
 
 # ========== UI界面 ==========
-# 导入UI模块
-from src.ui import position_cursor_for_input, print_input_box
+# UI模块在main函数内按需导入
 
 def print_header():
     """打印程序头部"""
@@ -628,8 +643,8 @@ def main():
         # 主循环
         while True:
             try:
-                # 显示输入框
-                print_input_box()
+                # 输入提示符现在由 get_input_with_claude_style() 处理
+                # print_input_box()
 
                 # 获取用户输入（安全版本）
                 try:

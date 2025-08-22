@@ -7,23 +7,60 @@ from colorama import Fore, Style
 # 可用模式列表
 AVAILABLE_MODES = ["Ask", "mostly accepted", "sprint"]
 
+# HACPP模式状态
+class HACPPMode:
+    """HACPP模式管理器"""
+
+    def __init__(self):
+        self.is_active = False
+        self.test_code = "2255"  # 默认测试码
+        self.cheap_model = None  # 便宜模型名称
+        self.expensive_model = None  # 贵模型名称（当前配置的模型）
+        self.authenticated = False
+
+    def activate(self, input_code):
+        """激活HACPP模式"""
+        if input_code == self.test_code:
+            self.is_active = True
+            self.authenticated = True
+            return True
+        return False
+
+    def deactivate(self):
+        """关闭HACPP模式"""
+        self.is_active = False
+        self.authenticated = False
+        self.cheap_model = None
+
+    def set_cheap_model(self, model_name):
+        """设置便宜模型"""
+        self.cheap_model = model_name
+
+    def is_hacpp_active(self):
+        """检查HACPP模式是否激活"""
+        return self.is_active and self.authenticated and self.cheap_model is not None
+
+# 全局HACPP模式实例
+hacpp_mode = HACPPMode()
+
+
 class ModeManager:
     """模式管理器"""
-    
+
     def __init__(self):
         self.current_mode = "Ask"  # 默认模式
-    
+
     def get_current_mode(self):
         """获取当前模式"""
         return self.current_mode
-    
+
     def switch_mode(self):
         """切换到下一个模式"""
         current_index = AVAILABLE_MODES.index(self.current_mode)
         next_index = (current_index + 1) % len(AVAILABLE_MODES)
         self.current_mode = AVAILABLE_MODES[next_index]
         return self.current_mode
-    
+
     def get_mode_description(self, mode=None):
         """获取模式描述"""
         if mode is None:
@@ -85,14 +122,14 @@ class ModeManager:
             }
         }
         return permissions.get(mode, {})
-    
+
     def handle_mode_switch_command(self, user_input):
         """处理模式切换命令"""
         if user_input.lower() in ['/mode', '/m', 'alt+l']:
             self.show_mode_switch_notification()
             return True
         return False
-    
+
     def show_mode_switch_notification(self):
         """显示模式切换通知"""
         new_mode = self.switch_mode()

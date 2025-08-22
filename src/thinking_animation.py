@@ -89,7 +89,7 @@ class ThinkingAnimation:
 
         # 先显示完整的暗色词汇
         dim_word = f"{self.dim_color}{word}{Style.RESET_ALL}"
-        self._update_line(f"🤖 AI正在{dim_word}中...")
+        self._update_line(f"AI正在{dim_word}中...")
         time.sleep(0.3)
 
         # 高光从左到右扫过
@@ -110,7 +110,7 @@ class ThinkingAnimation:
 
             # 显示当前帧
             display_text = "".join(display_chars)
-            self._update_line(f"🤖 AI正在{display_text}中...")
+            self._update_line(f"AI正在{display_text}中...")
 
             # 等待下一帧
             time.sleep(animation_speed)
@@ -133,14 +133,14 @@ class ThinkingAnimation:
 
             # 显示当前帧
             display_text = "".join(display_chars)
-            self._update_line(f"🤖 AI正在{display_text}中...")
+            self._update_line(f"AI正在{display_text}中...")
 
             # 等待下一帧
             time.sleep(animation_speed * 0.7)  # 第二遍稍快一些
 
         # 最后显示完整的高亮词汇
         bright_word = f"{self.highlight_color}{word}{Style.RESET_ALL}"
-        self._update_line(f"🤖 AI正在{bright_word}中...")
+        self._update_line(f"AI正在{bright_word}中...")
         time.sleep(0.5)
         
     def _update_line(self, text):
@@ -196,19 +196,7 @@ def show_dot_cycle_animation(message="AI", duration=0.3):
     end_time = time.time() + duration
     
     # 先输出一个换行符
-    print()
-    
-    # 显示动画在新行上，然后清除整行（避免干扰输入框）
-    sys.stdout.write(f"\n{Fore.CYAN}{message}... (ESC){Style.RESET_ALL}")
-    sys.stdout.flush()
-    
-    # 更新点动画在同一行
-    while time.time() < end_time:
-        dot_pattern = next(dots)
-        display_text = f"{Fore.CYAN}{message}{dot_pattern} (ESC){Style.RESET_ALL}"
-        sys.stdout.write(f"\r{display_text}")
-        sys.stdout.flush()
-        time.sleep(0.1)  # 更快的动画速度
+    print()  
     
     # 清除整行并回到上一行（确保不干扰输入框）
     sys.stdout.write("\r\033[K\033[1A\033[K")

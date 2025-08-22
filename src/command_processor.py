@@ -6,7 +6,8 @@ import os
 from colorama import Fore, Style
 from .commands import show_help, show_status, handle_todo_command, show_todos
 from .config import show_settings, load_config
-from .modes import mode_manager
+from .modes import mode_manager, hacpp_mode
+from .hacpp_client import hacpp_client
 from .ui import print_welcome_screen, print_input_box
 from .ai_client import ai_client
 from .ai_tools import ai_tool_processor
@@ -20,7 +21,13 @@ def process_ai_conversation(user_input):
         print(f"{Fore.RED}错误：请先设置API密钥。使用 /s 命令进入设置。{Style.RESET_ALL}")
         return
 
-    print(f"{Fore.CYAN}🤖 AI助手正在处理您的请求...{Style.RESET_ALL}")
+    # 检查是否处于HACPP模式
+    if hacpp_mode.is_hacpp_active():
+        print(f"{Fore.MAGENTA}🚀 HACPP模式激活 - 双AI协作处理{Style.RESET_ALL}")
+        hacpp_client.process_hacpp_request(user_input)
+        return
+
+    print(f"{Fore.CYAN}AI助手正在处理您的请求...{Style.RESET_ALL}")
 
     # 启用输出监控
     enable_print_monitoring()
@@ -80,7 +87,7 @@ def process_ai_conversation(user_input):
 
             # 显示AI的意图（过滤XML）
             if result['display_text'].strip():
-                print(f"\n{Fore.GREEN}🤖 AI: {result['display_text']}{Style.RESET_ALL}")
+                print(f"\n{Fore.GREEN}AI: {result['display_text']}{Style.RESET_ALL}")
 
             # 如果有工具调用，显示结果
             if result['has_tool'] and result['tool_result']:
@@ -88,7 +95,7 @@ def process_ai_conversation(user_input):
 
             # 如果需要继续（有工具调用且未完成），继续对话
             if result['should_continue']:
-                print(f"\n{Fore.CYAN}🤖 AI继续处理... (步骤 {iteration_count}/{max_iterations}){Style.RESET_ALL}")
+                print(f"\n{Fore.CYAN}AI继续处理... (步骤 {iteration_count}/{max_iterations}){Style.RESET_ALL}")
 
                 # 构建更详细的反馈信息给AI
                 feedback_message = f"工具执行结果: {result['tool_result']}"
@@ -124,6 +131,65 @@ def process_ai_conversation(user_input):
     if iteration_count >= max_iterations:
         print(f"\n{Fore.YELLOW}⚠️ 已达到最大处理步骤数 ({max_iterations})，任务可能需要手动干预。{Style.RESET_ALL}")
 
+def handle_hacpp_command(command_parts):
+    """处理HACPP模式命令"""
+    if len(command_parts) == 1:
+        # 只输入了 /HACPP，要求输入测试码
+        test_code = input(f"{Fore.YELLOW}请输入测试码: {Style.RESET_ALL}").strip()
+
+        if hacpp_mode.activate(test_code):
+            print(f"{Fore.GREEN}✓ HACPP模式已激活{Style.RESET_ALL}")
+            print(f"{Fore.CYAN}现在可以使用 /HACPP model 设置便宜模型{Style.RESET_ALL}")
+        else:
+            print(f"{Fore.RED}✗ 测试码错误{Style.RESET_ALL}")
+
+    elif len(command_parts) == 2 and command_parts[1].lower() == 'model':
+        # /HACPP model 命令
+        if not hacpp_mode.is_active:
+            print(f"{Fore.RED}错误：请先激活HACPP模式{Style.RESET_ALL}")
+            return
+
+        model_name = input(f"{Fore.YELLOW}请输入便宜模型名称: {Style.RESET_ALL}").strip()
+
+        if model_name:
+            hacpp_mode.set_cheap_model(model_name)
+            print(f"{Fore.GREEN}✓ 便宜模型已设置: {model_name}{Style.RESET_ALL}")
+            print(f"{Fore.CYAN}HACPP模式已完全激活，可以开始双AI协作{Style.RESET_ALL}")
+
+            # 显示当前配置
+            config = load_config()
+            expensive_model = config.get('model', '未设置')
+            print(f"{Fore.WHITE}当前配置:{Style.RESET_ALL}")
+            print(f"  便宜AI模型: {Fore.YELLOW}{model_name}{Style.RESET_ALL}")
+            print(f"  贵AI模型: {Fore.MAGENTA}{expensive_model}{Style.RESET_ALL}")
+        else:
+            print(f"{Fore.RED}模型名称不能为空{Style.RESET_ALL}")
+
+    elif len(command_parts) == 2 and command_parts[1].lower() == 'off':
+        # /HACPP off 命令 - 关闭HACPP模式
+        hacpp_mode.deactivate()
+        print(f"{Fore.YELLOW}HACPP模式已关闭{Style.RESET_ALL}")
+
+    elif len(command_parts) == 2 and command_parts[1].lower() == 'status':
+        # /HACPP status 命令 - 显示状态
+        if hacpp_mode.is_hacpp_active():
+            config = load_config()
+            expensive_model = config.get('model', '未设置')
+            print(f"{Fore.GREEN}HACPP模式状态: 激活{Style.RESET_ALL}")
+            print(f"  便宜AI模型: {Fore.YELLOW}{hacpp_mode.cheap_model}{Style.RESET_ALL}")
+            print(f"  贵AI模型: {Fore.MAGENTA}{expensive_model}{Style.RESET_ALL}")
+        elif hacpp_mode.is_active:
+            print(f"{Fore.YELLOW}HACPP模式状态: 已认证，但未设置便宜模型{Style.RESET_ALL}")
+        else:
+            print(f"{Fore.RED}HACPP模式状态: 未激活{Style.RESET_ALL}")
+
+    else:
+        # 显示帮助信息
+        print(f"{Fore.CYAN}HACPP模式命令帮助:{Style.RESET_ALL}")
+        print(f"  /HACPP        - 激活HACPP模式（需要测试码）")
+        print(f"  /HACPP model  - 设置便宜模型")
+        print(f"  /HACPP status - 显示HACPP模式状态")
+        print(f"  /HACPP off    - 关闭HACPP模式")
     print()  # 空行分隔
 
 def process_command(user_input):
@@ -179,6 +245,10 @@ def process_command(user_input):
     elif command == '/todos':
         show_todos()
 
+    # HACPP模式命令
+    elif command == '/hacpp':
+        handle_hacpp_command(command_parts)
+
     # 清屏命令
     elif command == '/clear':
         print_welcome_screen()
@@ -210,7 +280,7 @@ def process_command(user_input):
                 print(f"{Fore.RED}权限错误：无法访问目录 '{command_parts[1]}'{Style.RESET_ALL}")
         else:
             print(f"{Fore.YELLOW}用法: /cd <目录名>{Style.RESET_ALL}")
-    
+
     # 未知命令
     else:
         print(f"{Fore.RED}未知命令: {command}. 输入 '/help' 或 'help' 查看可用命令{Style.RESET_ALL}")
