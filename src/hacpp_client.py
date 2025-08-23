@@ -4,32 +4,43 @@ HACPP模式AI客户端 - 处理便宜AI和贵AI的协作
 
 import os
 import json
-import requests
+import re
+import asyncio
+import aiohttp
 from colorama import Fore, Style
 from .config import load_config, DEFAULT_API_URL
-from .ai_client import ai_client
-from .modes import hacpp_mode
 
+from .modes import hacpp_mode
+from .thinking_animation import show_dot_cycle_animation_async
+
+
+from .ai_tools import AIToolProcessor
 
 class HACPPAIClient:
     """HACPP模式AI客户端"""
 
     def __init__(self):
-        self.cheap_ai_history = []  # 便宜AI的对话历史
-        self.expensive_ai_history = []  # 贵AI的对话历史
+        self.cheap_ai_history = []
+        self.expensive_ai_history = []
+        # 为便宜AI创建一个独立的、权限受限的工具处理器
+        self.researcher_tool_processor = AIToolProcessor()
+        # 关键：限制可用工具为只读
+        self.researcher_tool_processor.tools = {
+            'read_file': self.researcher_tool_processor.read_file,
+            'code_search': self.researcher_tool_processor.code_search,
+            'task_complete': self.researcher_tool_processor.task_complete
+        }
 
-    def send_to_cheap_ai(self, message, model_name=None):
-        """发送消息给便宜AI进行分析"""
+    async def send_to_cheap_ai(self, message, model_name=None):
+        """异步发送消息给便宜AI进行分析"""
         if not model_name:
             model_name = hacpp_mode.cheap_model
 
         if not model_name:
             return "错误：未设置便宜模型"
 
-        # 构建便宜AI的系统提示
         system_prompt = self._get_cheap_ai_system_prompt()
 
-        # 发送请求到便宜AI
         try:
             config = load_config()
             api_key = config.get('api_key')
@@ -43,151 +54,127 @@ class HACPPAIClient:
                 'Authorization': f'Bearer {api_key}'
             }
 
-            # 构建消息历史
             messages = [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": message}
             ]
-
-            # 添加历史对话
-            for msg in self.cheap_ai_history[-5:]:  # 只保留最近5条对话
+            for msg in self.cheap_ai_history[-5:]:
                 messages.insert(-1, msg)
 
             payload = {
                 'model': model_name,
                 'messages': messages,
-                'temperature': 0.3,  # 便宜AI使用较低的温度，更加专注
+                'temperature': 0.3,
                 'max_tokens': 2000
             }
 
-            response = requests.post(api_url, headers=headers, json=payload, timeout=30)
-
-            if response.status_code == 200:
-                result = response.json()
-                ai_response = result['choices'][0]['message']['content']
-
-                # 保存到历史
-                self.cheap_ai_history.append({"role": "user", "content": message})
-                self.cheap_ai_history.append({"role": "assistant", "content": ai_response})
-
-                return ai_response
-            else:
-                return f"便宜AI请求失败: {response.status_code} - {response.text}"
+            async with aiohttp.ClientSession() as session:
+                async with session.post(api_url, headers=headers, json=payload, timeout=30) as response:
+                    if response.status == 200:
+                        result = await response.json()
+                        ai_response = result['choices'][0]['message']['content']
+                        self.cheap_ai_history.append({"role": "user", "content": message})
+                        self.cheap_ai_history.append({"role": "assistant", "content": ai_response})
+                        return ai_response
+                    else:
+                        error_text = await response.text()
+                        return f"便宜AI请求失败: {response.status} - {error_text}"
 
         except Exception as e:
             return f"便宜AI请求异常: {str(e)}"
 
-    def send_to_expensive_ai(self, message, files_to_modify=None):
-        """发送消息给贵AI进行代码编写"""
-        # 构建贵AI的系统提示
-        system_prompt = self._get_expensive_ai_system_prompt(files_to_modify)
 
-        # 使用现有的ai_client，但添加特殊的系统提示
-        original_message = message
-        if files_to_modify:
-            message = f"[HACPP模式] 需要修改的文件: {', '.join(files_to_modify)}\n\n{message}"
-
-        # 发送给贵AI
-        return ai_client.send_message(message)
 
     def process_hacpp_request(self, user_request):
-        """处理HACPP模式的请求"""
-        print(f"{Fore.CYAN}🔄 HACPP模式处理中...{Style.RESET_ALL}")
+        """处理HACPP模式的请求，返回一个用于主循环的初始prompt"""
+        print(f"{Fore.CYAN}🔄 HACPP模式启动 - 研究员（便宜AI）开始分析...{Style.RESET_ALL}")
 
-        # 第一步：便宜AI分析需求和项目
-        print(f"{Fore.YELLOW}📋 便宜AI正在分析需求和项目结构...{Style.RESET_ALL}")
-
-        # 获取项目结构信息
         project_info = self._get_project_structure()
-
-        analysis_prompt = f"""
+        current_message = f"""
 用户需求: {user_request}
 
 当前项目结构:
 {project_info}
 
-请分析这个需求，并确定需要修改哪些文件。请按照以下格式回复：
-
-FILES_TO_MODIFY:
-- 文件路径1: 修改原因
-- 文件路径2: 修改原因
-
-ANALYSIS:
-详细分析用户需求，说明实现方案和步骤。
-
-PRIORITY:
-HIGH/MEDIUM/LOW - 任务优先级
-
-IMPLEMENTATION_STEPS:
-1. 步骤1
-2. 步骤2
-3. 步骤3
+请分析此需求，并制定一个详细的计划。你可以使用 `read_file` 和 `code_search` 工具来收集更多信息。当你完成所有信息收集和规划后，请使用 `task_complete` 工具来结束你的任务，并在summary中总结你的最终计划。
 """
 
-        cheap_analysis = self.send_to_cheap_ai(analysis_prompt)
+        max_iterations = 50
+        i = 0
+        while i < max_iterations:
+            i += 1
+            # 异步调用便宜AI并显示动画
+            ai_response = asyncio.run(self._get_response_with_animation(current_message, i, max_iterations))
 
-        if "错误" in cheap_analysis:
-            print(f"{Fore.RED}便宜AI分析失败: {cheap_analysis}{Style.RESET_ALL}")
-            return False
+            if "错误" in ai_response:
+                print(f"{Fore.RED}便宜AI请求失败: {ai_response}{Style.RESET_ALL}")
+                return None
 
-        print(f"{Fore.GREEN}📋 便宜AI分析结果:{Style.RESET_ALL}")
-        print(f"{Fore.WHITE}{cheap_analysis}{Style.RESET_ALL}")
+            # 显示便宜AI的思考过程
+            display_text = self.researcher_tool_processor._remove_xml_tags(ai_response)
+            if display_text.strip():
+                print(f"{Fore.GREEN}便宜AI: {display_text}{Style.RESET_ALL}")
 
-        # 解析便宜AI的分析结果
-        files_to_modify = self._parse_files_from_analysis(cheap_analysis)
-
-        if not files_to_modify:
-            print(f"{Fore.YELLOW}⚠️ 便宜AI未识别出需要修改的文件，将交给贵AI处理{Style.RESET_ALL}")
-            files_to_modify = []
-
-        # 第二步：贵AI执行具体的代码修改
-        print(f"\n{Fore.CYAN}💎 贵AI开始执行代码修改...{Style.RESET_ALL}")
-
-        expensive_prompt = f"""
+            # 关键：直接检查task_complete并提取总结
+            task_complete_match = re.search(r'<task_complete><summary>(.*?)</summary></task_complete>', ai_response, re.DOTALL)
+            if task_complete_match:
+                summary = task_complete_match.group(1).strip()
+                print(f"{Fore.GREEN}✅ 研究员（便宜AI）完成分析。{Style.RESET_ALL}")
+                final_prompt = f"""
 [HACPP模式协作]
 
-便宜AI的分析结果:
-{cheap_analysis}
+便宜AI的研究总结和规划:
+{summary}
 
-用户原始需求:
+原始用户需求:
 {user_request}
 
-请根据便宜AI的分析，执行具体的代码修改任务。你可以调用所有可用的工具来完成任务。
+现在，请作为执行者，根据以上规划开始实施任务。
 """
+                return final_prompt # 成功交接
 
-        # 发送给贵AI处理
-        return self.send_to_expensive_ai(expensive_prompt, files_to_modify)
+            # 处理其他只读工具
+            result = self.researcher_tool_processor.process_response(ai_response)
+            if result['has_tool'] and result['tool_result']:
+                print(f"{Fore.YELLOW}便宜AI工具执行结果: {result['tool_result'][:200]}...{Style.RESET_ALL}")
+                current_message = f"工具执行结果: {result['tool_result']}"
+            else:
+                current_message = display_text
+
+        print(f"{Fore.RED}便宜AI分析达到最大迭代次数，流程终止。{Style.RESET_ALL}")
+        return None
+
+    async def _get_response_with_animation(self, message, step, max_steps):
+        """异步获取便宜AI的响应，并显示等待动画"""
+        analysis_task = asyncio.create_task(self.send_to_cheap_ai(message))
+        animation_task = asyncio.create_task(show_dot_cycle_animation_async(f"便宜AI分析中 (步骤 {step}/{max_steps})", duration=60))
+
+        _, pending = await asyncio.wait([analysis_task, animation_task], return_when=asyncio.FIRST_COMPLETED)
+
+        for task in pending:
+            task.cancel()
+
+        return await analysis_task
 
     def _get_cheap_ai_system_prompt(self):
         """获取便宜AI的系统提示"""
-        return """你是一个代码分析专家，专门负责分析用户需求并确定需要修改的文件。
+        return """你是代码分析专家（研究员）。你的唯一目标是为另一个AI（执行者）制定一个清晰、可操作的计划。
 
-你的任务是：
-1. 理解用户的需求
-2. 分析当前项目结构
-3. 确定需要修改哪些文件
-4. 提供实现方案的概述
+# 你的工作流程（必须严格遵守）
+1.  **分析需求**：深入理解用户的最终目标。
+2.  **收集信息**：你可以，且仅可以，使用以下只读工具来探索项目、阅读文件，并收集所有必要的信息：
+    *   `<read_file><path>...</path></read_file>`
+    *   `<code_search><keyword>...</keyword></code_search>`
+3.  **循环迭代**：你可以多次调用这些工具来逐步完善你的理解和计划。
+4.  **完成并移交**：当你收集到足够的信息并制定了完整的计划后，**你必须通过调用 `<task_complete><summary>...</summary></task_complete>` 工具来结束你的工作**。这是你唯一的结束方式，也是将计划移交给执行者的信号。
 
-请始终按照指定格式回复，确保FILES_TO_MODIFY部分清晰列出需要修改的文件路径。
+# `task_complete` 的 `summary` 规范（必须严格遵守）
+在 `summary` 中，你必须提供一个清晰、简洁、完整的最终计划，这个计划将直接交给执行者AI。你的总结必须包含所有必要的文件路径和需要进行的修改。
 
-你不需要编写具体代码，只需要做分析和规划工作。具体的代码实现将由更高级的AI来完成。"""
+# 绝对禁止的行为
+你绝对不能调用任何写入、修改或删除文件的工具 (`write_file`, `create_file`, `delete_file`, `insert_code`, `replace_code`) 或 `execute_command`。你的职责是研究和规划，而不是执行。**任何试图执行修改操作的行为都是严重错误。**"""
 
-    def _get_expensive_ai_system_prompt(self, files_to_modify=None):
-        """获取贵AI的系统提示"""
-        base_prompt = """你是一个高级代码AI，专门负责执行具体的代码修改任务。
 
-你正在HACPP协作模式中工作：
-- 便宜AI已经完成了需求分析和文件识别
-- 你的任务是执行具体的代码修改和实现
-
-你可以使用所有可用的工具来完成任务，包括读取文件、修改文件、创建文件等。
-
-请按照便宜AI的分析结果，高效地完成用户的需求。"""
-
-        if files_to_modify:
-            base_prompt += f"\n\n重点关注以下文件：{', '.join(files_to_modify)}"
-
-        return base_prompt
 
     def _parse_files_from_analysis(self, analysis):
         """从便宜AI的分析结果中解析出需要修改的文件"""

@@ -17,12 +17,14 @@ class HACPPMode:
         self.cheap_model = None  # 便宜模型名称
         self.expensive_model = None  # 贵模型名称（当前配置的模型）
         self.authenticated = False
+        self.phase = "inactive"  # inactive, researching, executing
 
     def activate(self, input_code):
         """激活HACPP模式"""
         if input_code == self.test_code:
             self.is_active = True
             self.authenticated = True
+            self.phase = "researching"  # 激活后进入研究阶段
             return True
         return False
 
@@ -31,6 +33,7 @@ class HACPPMode:
         self.is_active = False
         self.authenticated = False
         self.cheap_model = None
+        self.phase = "inactive"
 
     def set_cheap_model(self, model_name):
         """设置便宜模型"""

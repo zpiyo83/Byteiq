@@ -60,7 +60,7 @@ def format_ai_response(raw_response, api_result=None):
         # 正常模式：返回渲染后的用户友好内容
         return raw_response
 
-def timeout_protection(timeout_seconds=90):
+def timeout_protection(timeout_seconds=120):
     """超时保护装饰器"""
     def decorator(func):
         def wrapper(*args, **kwargs):
@@ -203,18 +203,22 @@ class AIClient:
         except Exception as e:
             return {"error": str(e)}
 
-    def send_message_async(self, user_input, include_structure=True):
+    def send_message_async(self, user_input, include_structure=True, model_override=None):
         """异步发送消息，返回Future对象"""
         config = load_config()
 
         if not config.get('api_key'):
             return None
 
+        # 决定使用哪个模型
+        model_to_use = model_override if model_override else config.get('model', 'gpt-3.5-turbo')
+
         # 构建请求数据
         data = {
-            "model": config.get('model', 'gpt-3.5-turbo'),
+            "model": model_to_use,
             "messages": [
                 {"role": "system", "content": self.get_system_prompt()},
+                *self.conversation_history,
                 {"role": "user", "content": user_input}
             ],
             "temperature": 0.7,
@@ -229,7 +233,7 @@ class AIClient:
         # 提交异步请求
         return self.network_manager.submit_request(self._make_network_request, data, headers)
 
-    def send_message_non_blocking(self, user_input, include_structure=True):
+    def send_message_non_blocking(self, user_input, include_structure=True, model_override=None):
         """非阻塞发送消息给AI"""
         # 启动思考动画
         start_thinking()
@@ -239,7 +243,7 @@ class AIClient:
 
         try:
             # 提交异步请求
-            future = self.send_message_async(user_input, include_structure)
+            future = self.send_message_async(user_input, include_structure, model_override)
             if not future:
                 return "错误：请先设置API密钥"
 
@@ -298,7 +302,7 @@ class AIClient:
             except:
                 pass
 
-    @timeout_protection(timeout_seconds=90)
+    @timeout_protection(timeout_seconds=120)
     def send_message(self, user_input, include_structure=True):
         """发送消息给AI（保持向后兼容）"""
         try:
