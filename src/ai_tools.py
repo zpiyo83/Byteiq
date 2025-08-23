@@ -94,56 +94,34 @@ class AIToolProcessor:
         for tool_name, matches in tools_found:
             if matches:
                 tool_found = True
-                # 关键改动：先提取AI的思考过程，再执行工具
-                display_text = self._remove_xml_tags(ai_response)
-
+                thought_process = self._extract_thought_process(ai_response, tool_patterns)
                 permission = mode_manager.can_auto_execute(tool_name)
+                tool_result, tool_summary = "", ""
 
                 if permission is False:
                     tool_result = f"当前模式 ({mode_manager.get_current_mode()}) 不允许此操作"
-                elif permission == "confirm":
-                    # 用户确认模式
-                    if tool_name in ['write_file', 'create_file']:
-                        path, content = matches[0]
-                        action = "创建文件" if tool_name == 'create_file' else "写入文件"
-                        content_preview = self._get_content_preview(content.strip())
-                        print(f"\n{Fore.YELLOW}AI想要{action}: {path.strip()}{Style.RESET_ALL}")
-                        print(f"{Fore.CYAN}内容预览:\n{content_preview}{Style.RESET_ALL}")
-                        if self._ask_user_confirmation(f"{action} {path.strip()}"):
-                            tool_result = self.tools[tool_name](path.strip(), content.strip())
-                        else:
-                            tool_result = "用户取消了操作"
-                    elif tool_name in ['insert_code', 'replace_code']:
-                        if tool_name == 'insert_code':
-                            path, line, content = matches[0]
-                            action = f"在第{line.strip()}行插入代码"
-                        else:
-                            path, start_line, end_line, content = matches[0]
-                            action = f"替换第{start_line.strip()}-{end_line.strip()}行代码"
-                        # ... (此处省略了详细的代码预览逻辑，因为它保持不变)
-                        if self._ask_user_confirmation(action):
-                            if tool_name == 'insert_code':
-                                tool_result = self.tools[tool_name](path.strip(), int(line.strip()), content.strip())
-                            else:
-                                tool_result = self.tools[tool_name](path.strip(), int(start_line.strip()), int(end_line.strip()), content.strip())
-                        else:
-                            tool_result = "用户取消了代码编辑操作"
-                    elif tool_name == 'execute_command':
-                        command = matches[0].strip()
-                        print(f"\n{Fore.YELLOW}AI想要执行命令: {command}{Style.RESET_ALL}")
-                        if self._ask_user_confirmation(f"执行命令: {command}"):
-                            tool_result = self.tools[tool_name](command)
-                        else:
-                            tool_result = "用户取消了命令执行"
-                    else:
-                        if self._ask_user_confirmation(f"执行 {tool_name} 操作"):
-                            tool_result = self._execute_tool_with_matches(tool_name, matches)
-                        else:
-                            tool_result = "用户取消了操作"
-                else:
-                    # 自动执行
-                    tool_result = self._execute_tool_with_matches(tool_name, matches)
+                    tool_summary = f"操作被禁止: {tool_name}"
 
+                elif permission == "confirm":
+                    # Generate a temporary summary just for the confirmation prompt
+                    _, temp_summary = self._execute_tool_with_matches(tool_name, matches, dry_run=True)
+                    print(f"\n{Fore.YELLOW}AI 想要 {temp_summary}{Style.RESET_ALL}")
+                    # Add detailed previews for file operations here if needed
+
+                    if self._ask_user_confirmation(f"执行操作: {temp_summary}"):
+                        tool_result, tool_summary = self._execute_tool_with_matches(tool_name, matches)
+                    else:
+                        tool_result = "用户取消了操作"
+                        tool_summary = f"用户取消 - {temp_summary}"
+
+                else:  # Auto-execute
+                    tool_result, tool_summary = self._execute_tool_with_matches(tool_name, matches)
+
+                # Combine thought process and tool summary for the final display text
+                if thought_process:
+                    display_text = f"{thought_process}\n{Fore.CYAN}{tool_summary}{Style.RESET_ALL}"
+                else:
+                    display_text = f"{Fore.CYAN}{tool_summary}{Style.RESET_ALL}"
                 break
 
         # 如果没有工具调用，移除XML标签显示纯文本
@@ -171,6 +149,14 @@ class AIToolProcessor:
             'should_continue': should_continue
         }
 
+
+
+    def _extract_thought_process(self, text, tool_patterns):
+        """Removes all tool call XML blocks to isolate the AI's reasoning."""
+        processed_text = text
+        for pattern in tool_patterns.values():
+            processed_text = re.sub(pattern, '', processed_text, flags=re.DOTALL)
+        return processed_text.strip()
 
     def _get_content_preview(self, content, max_lines=5):
         """获取内容预览（前5行）"""
@@ -716,71 +702,43 @@ class AIToolProcessor:
                 print(f"\n{Fore.RED}操作已取消{Style.RESET_ALL}")
                 return False
 
-    def _execute_tool_with_matches(self, tool_name, matches):
-        """执行工具并返回结果（带错误处理）"""
+    def _execute_tool_with_matches(self, tool_name, matches, dry_run=False):
+        """Executes a tool and returns the result and a user-friendly summary."""
+        # Step 1: Generate the summary based on the tool and arguments
+        tool_summary = ""
+        args = [m.strip() for m in matches[0]] if isinstance(matches[0], tuple) else [matches[0].strip()]
+
+        # This block creates a human-readable summary for every tool.
+        if tool_name in ['write_file', 'create_file', 'delete_file', 'read_file']:
+            actions = {'write_file': '写入文件', 'create_file': '创建文件', 'delete_file': '删除文件', 'read_file': '读取文件'}
+            tool_summary = f"{actions[tool_name]}: {args[0]}"
+        elif tool_name in ['insert_code', 'replace_code']:
+            tool_summary = f"编辑代码: {args[0]}"
+        elif tool_name == 'execute_command':
+            tool_summary = f"执行命令: {args[0]}"
+        else:
+            tool_summary = f"执行工具: {tool_name}"
+
+        if dry_run:
+            return None, tool_summary
+
+        # Step 2: Execute the tool if not a dry run
         try:
-            if tool_name in ['write_file', 'create_file']:
-                path, content = matches[0]
-                tool_result = self.tools[tool_name](path.strip(), content.strip())
-            elif tool_name == 'insert_code':
-                path, line, content = matches[0]
-                tool_result = self.tools[tool_name](path.strip(), int(line.strip()), content.strip())
-            elif tool_name == 'replace_code':
-                path, start_line, end_line, content = matches[0]
-                tool_result = self.tools[tool_name](path.strip(), int(start_line.strip()), int(end_line.strip()), content.strip())
-            elif tool_name == 'read_file':
-                path = matches[0].strip()
-                tool_result = self.tools[tool_name](path)
-            elif tool_name == 'execute_command':
-                command = matches[0].strip()
-                tool_result = self.tools[tool_name](command)
-            elif tool_name == 'add_todo':
-                title, description, priority = matches[0]
-                tool_result = self.tools[tool_name](title.strip(), description.strip(), priority.strip())
-            elif tool_name == 'update_todo':
-                todo_id, status, progress = matches[0]
-                tool_result = self.tools[tool_name](todo_id.strip(), status.strip(), int(progress.strip()) if progress.strip().isdigit() else 0)
-            elif tool_name == 'show_todos':
-                tool_result = self.tools[tool_name]()
-            elif tool_name == 'delete_file':
-                path = matches[0].strip()
-                tool_result = self.tools[tool_name](path)
-            elif tool_name == 'mcp_call_tool':
-                tool_name_param, arguments_json = matches[0]
-                tool_result = self.tools[tool_name](tool_name_param.strip(), arguments_json.strip())
-            elif tool_name == 'mcp_read_resource':
-                uri = matches[0].strip()
-                tool_result = self.tools[tool_name](uri)
-            elif tool_name == 'mcp_list_tools':
-                tool_result = self.tools[tool_name]()
-            elif tool_name == 'mcp_list_resources':
-                tool_result = self.tools[tool_name]()
-            elif tool_name == 'mcp_server_status':
-                tool_result = self.tools[tool_name]()
-            elif tool_name == 'task_complete':
-                summary = matches[0].strip()
-                tool_result = self.tools[tool_name](summary)
-            elif tool_name == 'code_search':
-                keyword = matches[0].strip()
-                tool_result = self.tools[tool_name](keyword)
-            else:
-                tool_result = "未知工具"
+            # Convert numeric arguments where necessary
+            if tool_name in ['insert_code', 'replace_code', 'update_todo']:
+                for i, arg in enumerate(args):
+                    if arg.isdigit():
+                        args[i] = int(arg)
 
+            tool_result = self.tools[tool_name](*args)
             show_dot_cycle_animation("执行", 0.3)
-            return tool_result
-
+            return tool_result, tool_summary
         except Exception as e:
             error_msg = str(e)
-            tool_result = f"❌ 工具执行失败: {error_msg}\n"
-            tool_result += f"🔧 请分析错误原因并重新尝试。根据单工具限制，请在下次响应中修复此问题。"
-
-            print(f"{Fore.RED}工具执行错误详情:{Style.RESET_ALL}")
-            print(f"  工具: {tool_name}")
-            print(f"  参数: {matches}")
-            print(f"  错误: {error_msg}")
-
+            tool_result = f"❌ 工具执行失败: {error_msg}"
+            tool_summary = f"❌ {tool_name} 执行失败: {error_msg}"
             show_dot_cycle_animation("失败", 0.3)
-            return tool_result
+            return tool_result, tool_summary
 
     def _is_command_real_failure(self, tool_result):
         """智能检测命令是否真正失败"""
