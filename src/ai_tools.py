@@ -82,7 +82,6 @@ class AIToolProcessor:
             'mcp_server_status': r'<mcp_server_status></mcp_server_status>',
             'task_complete': r'<task_complete><summary>(.*?)</summary></task_complete>',
             'plan': r'<plan><completed_action>(.*?)</completed_action><next_step>(.*?)</next_step></plan>',
-            'plan': r'<plan><completed_action>(.*?)</completed_action><next_step>(.*?)</next_step></plan>',
             'code_search': r'<code_search><keyword>(.*?)</keyword></code_search>'
         }
 
@@ -102,6 +101,19 @@ class AIToolProcessor:
 
         # 按工具在文本中的出现位置排序
         found_tool_calls.sort(key=lambda x: x['start_pos'])
+
+        # 添加大概率判断机制：检查不完整输出
+        if not found_tool_calls:
+            # 检查是否包含可能的不完整工具调用
+            incomplete_tool_match = self._check_incomplete_tool_call(ai_response)
+            if incomplete_tool_match:
+                return {
+                    'has_tool': True,
+                    'tool_result': f"❌ 工具调用失败: AI输出不完整，检测到可能的{incomplete_tool_match['tool_name']}工具调用但格式不完整",
+                    'executed_tools': [],
+                    'display_text': "",
+                    'should_continue': True  # 让AI继续修复
+                }
 
         # 提取一次思考过程
         thought_process = self._extract_thought_process(ai_response, tool_patterns)
@@ -180,6 +192,31 @@ class AIToolProcessor:
         for pattern in tool_patterns.values():
             processed_text = re.sub(pattern, '', processed_text, flags=re.DOTALL)
         return processed_text.strip()
+
+    def _check_incomplete_tool_call(self, text):
+        """检查不完整的工具调用"""
+        # 定义可能的不完整工具调用模式
+        incomplete_patterns = {
+            'read_file': r'<read_file>(.*?)</read_file>',
+            'write_file': r'<write_file>(.*?)</write_file>',
+            'create_file': r'<create_file>(.*?)</create_file>',
+            'insert_code': r'<insert_code>(.*?)</insert_code>',
+            'replace_code': r'<replace_code>(.*?)</replace_code>',
+            'execute_command': r'<execute_command>(.*?)</execute_command>',
+            'add_todo': r'<add_todo>(.*?)</add_todo>',
+            'update_todo': r'<update_todo>(.*?)</update_todo>',
+            'delete_file': r'<delete_file>(.*?)</delete_file>'
+        }
+        
+        for tool_name, pattern in incomplete_patterns.items():
+            match = re.search(pattern, text, re.DOTALL)
+            if match:
+                return {
+                    'tool_name': tool_name,
+                    'matched_text': match.group(1)
+                }
+        
+        return None
 
     def _get_content_preview(self, content, max_lines=5):
         """获取内容预览（前5行）"""

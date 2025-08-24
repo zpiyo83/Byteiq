@@ -138,6 +138,7 @@ def get_sprint_claude_prompt():
 3. **全面测试验证** - 每个功能都必须测试通过
 4. **质量保证交付** - 确保代码质量和完整性
 5. **输出完整性** - 代码和文件内容必须完整，绝对不能使用 `...` 或 `//...` 等省略号或注释来替代实际代码。
+6. **任务管理规范** - 每次执行任务时，第一遍要为这个任务列TODO，每次执行完一个任务后都要使用show_todos工具告诉用户还有哪些任务，及时更新任务进度。
 
 现在开始SPRINT！收到用户需求后立即全力冲刺！
 
@@ -231,6 +232,7 @@ def get_default_claude_prompt():
 5. **明确任务边界** - 清楚知道任务何时完成，避免过度开发
 6. **正确判断完成时机** - 在所有功能实现并通过测试后调用task_complete，之后不再继续输出
 7. **输出完整性** - 代码和文件内容必须完整，绝对不能使用 `...` 或 `//...` 等省略号或注释来替代实际代码。
+8. **任务管理规范** - 每次执行任务时，第一遍要为这个任务列TODO，每次执行完一个任务后都要使用show_todos工具告诉用户还有哪些任务，及时更新任务进度。
 
 请始终保持专业、高效，根据具体场景选择最合适的工具。
 
@@ -317,7 +319,9 @@ def get_sprint_flash_prompt():
 1. <create_file><path>calculator.py</path><content>完整代码</content></create_file>
 2. <execute_command><command>python calculator.py</command></execute_command>
 3. 如有错误立即修复
-4. 确认功能正常后<task_complete><summary>完成</summary></task_complete>"""
+4. 确认功能正常后<task_complete><summary>完成</summary></task_complete>
+
+任务执行规范：每次执行任务时，第一遍要为这个任务列TODO，每次执行完一个任务后都要使用show_todos工具告诉用户还有哪些任务，及时更新任务进度。"""
 
 def get_default_flash_prompt():
     """默认模式 - Flash专用（缩减强度）"""
@@ -382,6 +386,7 @@ def get_default_flash_prompt():
 5. **明确任务边界** - 清楚知道任务何时完成，避免过度开发
 6. **正确判断完成时机** - 在所有功能实现并通过测试后调用task_complete，之后不再继续输出
    7. **输出完整性** - 代码和文件内容必须完整，绝对不能使用 `...` 或 `//...` 等省略号或注释来替代实际代码。
+8. **任务管理规范** - 每次执行任务时，第一遍要为这个任务列TODO，每次执行完一个任务后都要使用show_todos工具告诉用户还有哪些任务，及时更新任务进度。
 
 请保持专业高效，选择合适的工具完成任务。
 
@@ -466,6 +471,7 @@ def get_sprint_qwen_prompt():
 3. **全面测试验证** - 每个功能都必须测试通过
 4. **质量保证交付** - 确保代码质量和完整性
 5. **输出完整性** - 代码和文件内容必须完整，绝对不能使用 `...` 或 `//...` 等省略号或注释来替代实际代码。
+6. **任务管理规范** - 每次执行任务时，第一遍要为这个任务列TODO，每次执行完一个任务后都要使用show_todos工具告诉用户还有哪些任务，及时更新任务进度。
 
 开始Sprint模式！收到需求后立即执行！
 
@@ -474,7 +480,9 @@ def get_sprint_qwen_prompt():
 1. <create_file><path>calculator.py</path><content>完整代码</content></create_file>
 2. <execute_command><command>python calculator.py</command></execute_command>
 3. 如有错误立即修复
-4. 确认功能正常后<task_complete><summary>完成</summary></task_complete>"""
+4. 确认功能正常后<task_complete><summary>完成</summary></task_complete>
+
+任务执行规范：每次执行任务时，第一遍要为这个任务列TODO，每次执行完一个任务后都要使用show_todos工具告诉用户还有哪些任务，及时更新任务进度。"""
 
 def get_default_qwen_prompt():
     """默认模式 - Qwen Coder专用（保留关键细节）"""
@@ -614,7 +622,9 @@ def get_sprint_mini_prompt():
 1. <create_file><path>calculator.py</path><content>完整代码</content></create_file>
 2. <execute_command><command>python calculator.py</command></execute_command>
 3. 如有错误立即修复
-4. 确认功能正常后<task_complete><summary>完成</summary></task_complete>"""
+4. 确认功能正常后<task_complete><summary>完成</summary></task_complete>
+
+任务执行规范：每次执行任务时，第一遍要为这个任务列TODO，每次执行完一个任务后都要使用show_todos工具告诉用户还有哪些任务，及时更新任务进度。"""
 
 def get_default_mini_prompt():
     """默认模式 - Mini专用（最简强度）"""
