@@ -7,6 +7,7 @@ import re
 import subprocess
 import json
 import asyncio
+import difflib
 from colorama import Fore, Style
 from .todo_manager import todo_manager
 from .todo_renderer import get_todo_renderer
@@ -22,6 +23,7 @@ class AIToolProcessor:
     def __init__(self):
         self.tools = {
             'read_file': self.read_file,
+            'precise_reading': self.precise_reading,
             'write_file': self.write_file,
             'create_file': self.create_file,
             'insert_code': self.insert_code,
@@ -37,13 +39,16 @@ class AIToolProcessor:
             'mcp_list_resources': self.mcp_list_resources,
             'mcp_server_status': self.mcp_server_status,
             'task_complete': self.task_complete,
+            'plan': self.plan,
+            'plan': self.plan,
             'code_search': self.code_search
         }
         self.todo_renderer = get_todo_renderer(todo_manager)
 
     def process_response(self, ai_response):
         # HACPP State Machine Logic: Check if we are in the researcher phase
-        if mode_manager.hacpp_mode.is_hacpp_active() and mode_manager.hacpp_mode.phase == "researching":
+        from .modes import hacpp_mode
+        if hacpp_mode.is_hacpp_active() and hacpp_mode.phase == "researching":
             # In researcher phase, we only look for task_complete or read-only tools
             task_complete_match = re.search(r'<task_complete><summary>(.*?)</summary></task_complete>', ai_response, re.DOTALL)
             if task_complete_match:
@@ -59,7 +64,8 @@ class AIToolProcessor:
         """处理AI响应，提取和执行工具调用"""
         # 查找XML工具调用
         tool_patterns = {
-            'read_file': r'<read_file><path>(.*?)</path></read_file>',
+            'read_file': r'<read_file><path>(.*?)</path>(?:<start_line>(\d*)</start_line><end_line>(\d*)</end_line>)?</read_file>',
+            'precise_reading': r'<precise_reading><path>(.*?)</path><start_line>(.*?)</start_line><end_line>(.*?)</end_line></precise_reading>',
             'write_file': r'<write_file><path>(.*?)</path><content>(.*?)</content></write_file>',
             'create_file': r'<create_file><path>(.*?)</path><content>(.*?)</content></create_file>',
             'insert_code': r'<insert_code><path>(.*?)</path><line>(.*?)</line><content>(.*?)</content></insert_code>',
@@ -75,77 +81,94 @@ class AIToolProcessor:
             'mcp_list_resources': r'<mcp_list_resources></mcp_list_resources>',
             'mcp_server_status': r'<mcp_server_status></mcp_server_status>',
             'task_complete': r'<task_complete><summary>(.*?)</summary></task_complete>',
+            'plan': r'<plan><completed_action>(.*?)</completed_action><next_step>(.*?)</next_step></plan>',
+            'plan': r'<plan><completed_action>(.*?)</completed_action><next_step>(.*?)</next_step></plan>',
             'code_search': r'<code_search><keyword>(.*?)</keyword></code_search>'
         }
 
         tool_found = False
-        tool_result = ""
-        display_text = ai_response
-        tools_found = []
 
-        # 🚨 第一步：检查是否有多个工具调用（单工具限制）
+
+        # 查找所有工具调用，并按其在文本中的出现顺序排序
+        found_tool_calls = []
         for tool_name, pattern in tool_patterns.items():
-            matches = re.findall(pattern, ai_response, re.DOTALL)
-            if matches:
-                tools_found.append((tool_name, matches))
+            for match in re.finditer(pattern, ai_response, re.DOTALL):
+                # 使用 finditer 来获取匹配的位置
+                found_tool_calls.append({
+                    "tool_name": tool_name,
+                    "matches": [match.groups()], # 保持与旧代码一致的格式
+                    "start_pos": match.start()
+                })
 
+        # 按工具在文本中的出现位置排序
+        found_tool_calls.sort(key=lambda x: x['start_pos'])
 
+        # 提取一次思考过程
+        thought_process = self._extract_thought_process(ai_response, tool_patterns)
+        if thought_process:
+            print(f"\n{Fore.GREEN}AI: {thought_process}{Style.RESET_ALL}")
 
-        for tool_name, matches in tools_found:
-            if matches:
-                tool_found = True
-                thought_process = self._extract_thought_process(ai_response, tool_patterns)
+        all_tool_results = []
+        executed_tool_names = []
+        display_text = ""
+
+        # 依次处理所有找到的工具
+        if found_tool_calls:
+            tool_found = True
+            for i, tool_call in enumerate(found_tool_calls):
+                tool_name = tool_call['tool_name']
+                matches = tool_call['matches']
+
                 permission = mode_manager.can_auto_execute(tool_name)
                 tool_result, tool_summary = "", ""
+
+                _, temp_summary = self._execute_tool_with_matches(tool_name, matches, dry_run=True)
 
                 if permission is False:
                     tool_result = f"当前模式 ({mode_manager.get_current_mode()}) 不允许此操作"
                     tool_summary = f"操作被禁止: {tool_name}"
-
                 elif permission == "confirm":
-                    # Generate a temporary summary just for the confirmation prompt
-                    _, temp_summary = self._execute_tool_with_matches(tool_name, matches, dry_run=True)
-                    print(f"\n{Fore.YELLOW}AI 想要 {temp_summary}{Style.RESET_ALL}")
-                    # Add detailed previews for file operations here if needed
+                    # 在多工具调用中，只在第一次询问前打印思考过程
+                    if i == 0 and thought_process:
+                        print(f"\n{Fore.GREEN}AI: {thought_process}{Style.RESET_ALL}")
+                    print(f"\n{Fore.YELLOW}AI 想要 ({i+1}/{len(found_tool_calls)}) {temp_summary}{Style.RESET_ALL}")
 
                     if self._ask_user_confirmation(f"执行操作: {temp_summary}"):
                         tool_result, tool_summary = self._execute_tool_with_matches(tool_name, matches)
                     else:
                         tool_result = "用户取消了操作"
                         tool_summary = f"用户取消 - {temp_summary}"
-
                 else:  # Auto-execute
                     tool_result, tool_summary = self._execute_tool_with_matches(tool_name, matches)
 
-                # Combine thought process and tool summary for the final display text
-                if thought_process:
-                    display_text = f"{thought_process}\n{Fore.CYAN}{tool_summary}{Style.RESET_ALL}"
-                else:
-                    display_text = f"{Fore.CYAN}{tool_summary}{Style.RESET_ALL}"
-                break
+                all_tool_results.append(tool_result)
+                executed_tool_names.append(tool_name)
+                # 始终打印我们生成的摘要，因为它现在是格式化输出的关键部分
+                print(f"{Fore.CYAN}{tool_summary}{Style.RESET_ALL}")
 
-        # 如果没有工具调用，移除XML标签显示纯文本
+        # 如果没有工具调用，显示纯文本
         if not tool_found:
             display_text = self._remove_xml_tags(ai_response)
 
-        # 🚨 强制继续判断逻辑 - 只有task_complete才能结束
+        # 聚合最终结果
+        final_tool_result = "\n".join(filter(None, all_tool_results))
+
+        # 强制继续判断逻辑
         should_continue = False
         if tool_found:
-            # 唯一的停止条件：task_complete工具调用
-            if 'task_complete' in ai_response:
+            if any(call['tool_name'] == 'task_complete' for call in found_tool_calls):
                 should_continue = False
             else:
-                # 其他所有情况都必须继续，包括工具执行失败
                 should_continue = True
         else:
-            # 如果没有找到工具，但AI的回复中包含了继续的意图，也应该继续
             if any(keyword in ai_response.lower() for keyword in ['继续', '接下来', '然后', '下一步', 'continue', 'next']):
                 should_continue = True
 
         return {
             'has_tool': tool_found,
-            'tool_result': tool_result,
-            'display_text': display_text,
+            'tool_result': final_tool_result,
+            'executed_tools': executed_tool_names,
+            'display_text': display_text, # display_text 现在主要由打印语句处理
             'should_continue': should_continue
         }
 
@@ -216,6 +239,34 @@ class AIToolProcessor:
             return f"成功读取文件 {path}，内容长度: {len(content)} 字符"
         except Exception as e:
             return f"读取文件失败: {str(e)}"
+
+    def precise_reading(self, path, start_line, end_line):
+        """精确读取文件指定行范围的内容"""
+        try:
+            start_line, end_line = int(start_line), int(end_line)
+            if not os.path.exists(path):
+                return f"错误：文件 {path} 不存在"
+
+            with open(path, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+
+            # 验证行号
+            if start_line < 1 or end_line > len(lines) or start_line > end_line:
+                return f"错误：行号范围 {start_line}-{end_line} 无效，文件共 {len(lines)} 行"
+
+            content_slice = lines[start_line - 1:end_line]
+            content = "".join(content_slice)
+
+            # 渲染标题
+            header_title = f"{os.path.basename(path)} ({start_line}-{end_line})"
+            print(f"\n{theme_manager.format_tool_header('Read', header_title)}")
+
+            # 打印内容
+            print(content.strip())
+
+            return f"成功读取文件 {path} 的第 {start_line}-{end_line} 行，内容长度: {len(content)} 字符"
+        except Exception as e:
+            return f"精确读取文件失败: {str(e)}"
 
     def write_file(self, path, content):
         """写入文件工具"""
@@ -337,7 +388,7 @@ class AIToolProcessor:
             original_lines = lines[start_line - 1:end_line]
 
             # 显示替换对比
-            self._show_code_replacement_diff(path, start_line, end_line, original_lines, content)
+            self._show_code_replacement_diff(path, [l.rstrip('\n\r') for l in original_lines], content)
 
             # 准备替换内容
             replace_lines = content.split('\n')
@@ -382,7 +433,7 @@ class AIToolProcessor:
             for line in iter(process.stdout.readline, ''):
                 # 移除换行符并打印
                 clean_line = line.rstrip()
-                print(f"  {clean_line}")
+                print(f"  {clean_line}", flush=True)
                 output_lines.append(clean_line)
 
             process.stdout.close()
@@ -392,7 +443,7 @@ class AIToolProcessor:
             print(f"\n{Fore.CYAN}执行完毕 (返回码: {return_code}){Style.RESET_ALL}")
 
             if return_code == 0:
-                return f"命令执行成功:\n{full_output}" if full_output.strip() else "命令执行成功"
+                return "命令执行成功"
             else:
                 return f"命令执行失败 (返回码: {return_code}):\n{full_output}"
 
@@ -404,8 +455,8 @@ class AIToolProcessor:
     def add_todo(self, title: str, description: str = "", priority: str = "medium"):
         """添加TODO任务工具"""
         try:
-            todo_id = todo_manager.add_todo(title, description, priority)
-            return f"成功添加任务: {title} (ID: {todo_id[:8]})"
+            todo_manager.add_todo(title, description, priority)
+            return ""  # 成功时静默，不返回消息
         except Exception as e:
             return f"添加任务失败: {str(e)}"
 
@@ -444,6 +495,19 @@ class AIToolProcessor:
         """任务完成工具"""
         return f"任务已完成: {summary}"
 
+
+    def plan(self, completed_action, next_step):
+        """计划工具，用于生成继承计划"""
+        # 这个工具的核心作用是结构化地返回计划，供command_processor捕获
+        # 它返回一个特殊格式的字符串，以便于解析
+        return f"PLAN::COMPLETED:{completed_action}::NEXT:{next_step}"
+
+
+    def plan(self, completed_action, next_step):
+        """计划工具，用于生成继承计划"""
+        # 这个工具的核心作用是结构化地返回计划，供command_processor捕获
+        # 它返回一个特殊格式的字符串，以便于解析
+        return f"PLAN::COMPLETED:{completed_action}::NEXT:{next_step}"
 
     def code_search(self, keyword):
         """在项目中搜索代码"""
@@ -706,12 +770,24 @@ class AIToolProcessor:
         """Executes a tool and returns the result and a user-friendly summary."""
         # Step 1: Generate the summary based on the tool and arguments
         tool_summary = ""
-        args = [m.strip() for m in matches[0]] if isinstance(matches[0], tuple) else [matches[0].strip()]
+        # Handle cases where a tool has no arguments (e.g., <show_todos/>)
+        if not matches or matches[0] is None:
+            raw_args = ()
+        else:
+            raw_args = matches[0] if isinstance(matches[0], tuple) else (matches[0],)
+
+        args = [arg.strip() if isinstance(arg, str) else arg for arg in raw_args]
 
         # This block creates a human-readable summary for every tool.
-        if tool_name in ['write_file', 'create_file', 'delete_file', 'read_file']:
-            actions = {'write_file': '写入文件', 'create_file': '创建文件', 'delete_file': '删除文件', 'read_file': '读取文件'}
+        if tool_name in ['write_file', 'delete_file', 'read_file']:
+            actions = {'write_file': '写入文件', 'delete_file': '删除文件', 'read_file': '读取文件'}
             tool_summary = f"{actions[tool_name]}: {args[0]}"
+        elif tool_name == 'create_file' or tool_name == 'plan':
+            tool_summary = "" # 这些工具不生成摘要
+
+        elif tool_name == 'add_todo':
+            title = args[0]
+            tool_summary = f"[ add_todo ] ──── TODO ────\n  • {title}"
         elif tool_name in ['insert_code', 'replace_code']:
             tool_summary = f"编辑代码: {args[0]}"
         elif tool_name == 'execute_command':
@@ -864,126 +940,122 @@ class AIToolProcessor:
             # 默认不继续，避免无限循环
             return False
 
-    def _show_code_replacement_diff(self, path, start_line, end_line, original_lines, new_content):
-        """显示代码替换的对比差异"""
-        print(f"\n{Fore.CYAN}📝 代码替换预览: {path} (第{start_line}-{end_line}行){Style.RESET_ALL}")
-        print(f"{Fore.CYAN}{'='*60}{Style.RESET_ALL}")
+    def _show_code_replacement_diff(self, path, original_lines, new_content):
+        """显示代码替换的对比差异，使用git风格"""
+        from colorama import Back
 
-        # 显示被删除的代码（红色）
-        print(f"{Fore.RED}🗑️  删除的代码:{Style.RESET_ALL}")
-        for i, line in enumerate(original_lines, start_line):
-            clean_line = line.rstrip('\n\r')
-            print(f"{Fore.RED}- {i:3d}: {clean_line}{Style.RESET_ALL}")
-
-        print()  # 空行分隔
-
-        # 显示新增的代码（绿色）
-        print(f"{Fore.GREEN}✅ 新增的代码:{Style.RESET_ALL}")
         new_lines = new_content.split('\n')
-        for i, line in enumerate(new_lines, start_line):
-            print(f"{Fore.GREEN}+ {i:3d}: {line}{Style.RESET_ALL}")
 
-        print(f"{Fore.CYAN}{'='*60}{Style.RESET_ALL}")
+        print(f"\n{theme_manager.format_tool_header('Replace', path)}")
+        print(f"  • +{len(new_lines)} additions")
+        print(f"  • -{len(original_lines)} deletions")
+
+        # 明确地将旧内容标记为红色，新内容标记为绿色
+        for line in original_lines:
+            print(f"    {Back.RED}{Fore.WHITE}- {line}{Style.RESET_ALL}")
+        for line in new_lines:
+            print(f"    {Back.GREEN}{Fore.WHITE}+ {line}{Style.RESET_ALL}")
 
     def _show_file_creation_preview(self, path, content):
-        """显示文件创建预览"""
+        """显示文件创建的预览，使用git风格，对长文件进行截断"""
+        from colorama import Back
         lines = content.split('\n')
+        line_count = len(lines)
 
-        # 只显示简化的格式
         print(f"\n{theme_manager.format_tool_header('Create', path)}")
-        print(f"  • +{len(lines)} additions")
-        print(f"  • 0 deletions")
+        print(f"  • +{line_count} additions")
+        print(f"  • -0 deletions")
 
-        # 显示前几行内容（带缩进）
-        show_lines = min(5, len(lines))
-        for i, line in enumerate(lines[:show_lines], 1):
-            print(f"    + {i:2d}: {line}")
-        if len(lines) > show_lines:
-            print(f"    ... (还有 {len(lines) - show_lines} 行)")
+        max_preview_lines = 15
+        if line_count <= max_preview_lines:
+            for line in lines:
+                print(f"    {Back.GREEN}{Fore.WHITE}+ {line}{Style.RESET_ALL}")
+        else:
+            for line in lines[:10]: # 显示前10行
+                print(f"    {Back.GREEN}{Fore.WHITE}+ {line}{Style.RESET_ALL}")
+            print(f"    ... (还有 {line_count - 15} 行未显示) ...")
+            for line in lines[-5:]: # 显示后5行
+                print(f"    {Back.GREEN}{Fore.WHITE}+ {line}{Style.RESET_ALL}")
 
-    def _show_file_write_preview(self, path, content):
-        """显示文件写入预览"""
-        print(f"\n{Fore.CYAN}📝 写入文件: {path}{Style.RESET_ALL}")
-        print(f"{Fore.CYAN}{'='*60}{Style.RESET_ALL}")
-
-        # 如果文件存在，显示原内容
+    def _show_file_write_preview(self, path, new_content):
+        """显示文件写入的对比差异，使用git风格，对长文件进行截断"""
+        from colorama import Back
+        original_lines = []
         if os.path.exists(path):
             try:
                 with open(path, 'r', encoding='utf-8') as f:
-                    original_content = f.read()
-
-                original_lines = original_content.split('\n')
-                print(f"{Fore.RED}🗑️  原文件内容 (前5行):{Style.RESET_ALL}")
-                for i, line in enumerate(original_lines[:5], 1):
-                    print(f"{Fore.RED}- {i:3d}: {line}{Style.RESET_ALL}")
-
-                if len(original_lines) > 5:
-                    print(f"{Fore.RED}... 原文件共 {len(original_lines)} 行{Style.RESET_ALL}")
-
-                print()  # 空行分隔
+                    original_lines = [l.rstrip('\n\r') for l in f.readlines()]
             except:
-                print(f"{Fore.YELLOW}⚠️ 无法读取原文件内容{Style.RESET_ALL}")
+                pass # Ignore if cannot read
 
-        # 显示新内容
-        lines = content.split('\n')
-        preview_lines = min(10, len(lines))
+        new_lines = new_content.split('\n')
+        diff = difflib.unified_diff(original_lines, new_lines, fromfile='a/' + path, tofile='b/' + path, lineterm='', n=3)
 
-        print(f"{Fore.GREEN}✅ 新文件内容 (前{preview_lines}行):{Style.RESET_ALL}")
-        for i, line in enumerate(lines[:preview_lines], 1):
-            print(f"{Fore.GREEN}+ {i:3d}: {line}{Style.RESET_ALL}")
+        print(f"\n{theme_manager.format_tool_header('Write', path)}")
+        # 统计实际的增删行数
+        additions = len([line for line in new_lines if line not in original_lines])
+        deletions = len([line for line in original_lines if line not in new_lines])
+        print(f"  • +{additions} additions")
+        print(f"  • -{deletions} deletions")
 
-        if len(lines) > preview_lines:
-            remaining = len(lines) - preview_lines
-            print(f"{Fore.LIGHTBLACK_EX}... 还有 {remaining} 行内容{Style.RESET_ALL}")
+        diff_lines = [line for line in list(diff)[3:] if line.startswith('+') or line.startswith('-')]
+        if not diff_lines:
+            print("    (No content changes)")
+            return
 
-        print(f"{Fore.CYAN}📊 新文件统计: {len(lines)} 行, {len(content)} 字符{Style.RESET_ALL}")
-        print(f"{Fore.CYAN}{'='*60}{Style.RESET_ALL}")
+        max_preview_lines = 15
+        if len(diff_lines) <= max_preview_lines:
+            for line in diff_lines:
+                if line.startswith('-'):
+                    print(f"    {Back.RED}{Fore.WHITE}{line}{Style.RESET_ALL}")
+                elif line.startswith('+'):
+                    print(f"    {Back.GREEN}{Fore.WHITE}{line}{Style.RESET_ALL}")
+        else:
+            # 显示部分差异
+            for line in diff_lines[:10]:
+                if line.startswith('-'):
+                    print(f"    {Back.RED}{Fore.WHITE}{line}{Style.RESET_ALL}")
+                elif line.startswith('+'):
+                    print(f"    {Back.GREEN}{Fore.WHITE}{line}{Style.RESET_ALL}")
+            print(f"    ... (还有 {len(diff_lines) - 15} 行变更未显示) ...")
+            for line in diff_lines[-5:]:
+                if line.startswith('-'):
+                    print(f"    {Back.RED}{Fore.WHITE}{line}{Style.RESET_ALL}")
+                elif line.startswith('+'):
+                    print(f"    {Back.GREEN}{Fore.WHITE}{line}{Style.RESET_ALL}")
 
     def _show_code_insertion_preview(self, path, line_number, content):
-        """显示代码插入的预览"""
-        print(f"\n{Fore.CYAN}📝 代码插入预览: {path} (第{line_number}行后){Style.RESET_ALL}")
-        print(f"{Fore.CYAN}{'='*60}{Style.RESET_ALL}")
-
-        # 显示插入位置的上下文
+        """显示代码插入的预览，使用git风格"""
+        from colorama import Back
         try:
             with open(path, 'r', encoding='utf-8') as f:
-                lines = f.readlines()
-
-            # 显示插入位置前后的代码
-            context_start = max(1, line_number - 2)
-            context_end = min(len(lines), line_number + 2)
-
-            print(f"{Fore.LIGHTBLACK_EX}📍 插入位置上下文:{Style.RESET_ALL}")
-            for i in range(context_start, line_number + 1):
-                if i <= len(lines):
-                    clean_line = lines[i-1].rstrip('\n\r')
-                    print(f"{Fore.LIGHTBLACK_EX}  {i:3d}: {clean_line}{Style.RESET_ALL}")
-
-            print()  # 空行分隔
-
-            # 显示要插入的代码（绿色）
-            print(f"{Fore.GREEN}✅ 插入的代码:{Style.RESET_ALL}")
-            insert_lines = content.split('\n')
-            for i, line in enumerate(insert_lines):
-                print(f"{Fore.GREEN}+ {line_number + i + 1:3d}: {line}{Style.RESET_ALL}")
-
-            print()  # 空行分隔
-
-            # 显示插入位置后的代码
-            print(f"{Fore.LIGHTBLACK_EX}📍 插入后的上下文:{Style.RESET_ALL}")
-            for i in range(line_number + 1, context_end + 1):
-                if i <= len(lines):
-                    clean_line = lines[i-1].rstrip('\n\r')
-                    print(f"{Fore.LIGHTBLACK_EX}  {i + len(insert_lines):3d}: {clean_line}{Style.RESET_ALL}")
-
+                original_lines = [l.rstrip('\n\r') for l in f.readlines()]
         except Exception:
-            # 如果无法读取上下文，只显示插入的代码
-            print(f"{Fore.GREEN}✅ 插入的代码:{Style.RESET_ALL}")
-            insert_lines = content.split('\n')
-            for i, line in enumerate(insert_lines):
-                print(f"{Fore.GREEN}+ {line_number + i + 1:3d}: {line}{Style.RESET_ALL}")
+            original_lines = []
 
-        print(f"{Fore.CYAN}{'='*60}{Style.RESET_ALL}")
+        new_lines_to_insert = content.split('\n')
+        # Create the new file content in memory
+        new_full_lines = original_lines[:line_number - 1] + new_lines_to_insert + original_lines[line_number - 1:]
+
+        diff = difflib.unified_diff(original_lines, new_full_lines, fromfile='a/' + path, tofile='b/' + path, lineterm='', n=3)
+
+        print(f"\n{theme_manager.format_tool_header('Insert', path)}")
+        print(f"  • +{len(new_lines_to_insert)} additions")
+        print(f"  • -0 deletions")
+
+        diff_lines = list(diff)
+        if not diff_lines:
+            return
+
+        # Skip header and show the diff
+        for line in diff_lines[3:]:
+            if line.startswith('+'):
+                print(f"    {Back.GREEN}{Fore.WHITE}{line}{Style.RESET_ALL}")
+            elif line.startswith('-'):
+                 # This shouldn't happen in a pure insertion, but we handle it for robustness
+                print(f"    {Back.RED}{Fore.WHITE}{line}{Style.RESET_ALL}")
+            else:
+                print(f"    {line}")
 
     def _get_file_lines(self, path, start_line, end_line):
         """获取文件指定行范围的内容"""

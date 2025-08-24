@@ -60,7 +60,7 @@ def format_ai_response(raw_response, api_result=None):
         # 正常模式：返回渲染后的用户友好内容
         return raw_response
 
-def timeout_protection(timeout_seconds=120):
+def timeout_protection(timeout_seconds=200):
     """超时保护装饰器"""
     def decorator(func):
         def wrapper(*args, **kwargs):
@@ -193,7 +193,7 @@ class AIClient:
     def _make_network_request(self, data, headers):
         """执行网络请求（在子线程中运行）"""
         try:
-            response = requests.post(self.api_url, json=data, headers=headers, timeout=60)
+            response = requests.post(self.api_url, json=data, headers=headers, timeout=180)
             if response.status_code == 401:
                 return {"error": "API密钥无效或未授权。请检查您的密钥。", "status_code": 401}
             response.raise_for_status()
@@ -249,7 +249,7 @@ class AIClient:
 
             # 非阻塞等待结果
             start_time = time.time()
-            max_wait_time = 90  # 最大等待90秒
+            max_wait_time = 180  # 最大等待180秒
 
             while True:
                 # 检查用户中断
@@ -302,7 +302,7 @@ class AIClient:
             except:
                 pass
 
-    @timeout_protection(timeout_seconds=120)
+    @timeout_protection(timeout_seconds=200)
     def send_message(self, user_input, include_structure=True):
         """发送消息给AI（保持向后兼容）"""
         try:
@@ -344,7 +344,7 @@ class AIClient:
 
             try:
                 # 发送请求，增加超时时间
-                response = requests.post(self.api_url, json=data, headers=headers, timeout=60)
+                response = requests.post(self.api_url, json=data, headers=headers, timeout=180)
             finally:
                 # 确保无论如何都停止动画和监控
                 stop_thinking()

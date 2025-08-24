@@ -14,117 +14,112 @@ from .ai_tools import ai_tool_processor
 from .output_monitor import start_output_monitoring, stop_output_monitoring, enable_print_monitoring
 
 def process_ai_conversation(user_input):
-    """处理AI对话"""
-    original_user_input = user_input # Save original request for handover
-    # 检查是否配置了API密钥
+    """处理AI对话，包含继承计划逻辑"""
+    import re
+    original_user_input = user_input
     config = load_config()
     if not config.get('api_key'):
         print(f"{Fore.RED}错误：请先设置API密钥。使用 /s 命令进入设置。{Style.RESET_ALL}")
         return
 
-    # 检查是否处于HACPP模式
-    # 状态机：检查HACPP模式的当前阶段
     if hacpp_mode.is_hacpp_active() and hacpp_mode.phase == "researching":
-        # 当HACPP模式刚启动时，为研究员（便宜AI）准备初始指令
         print(f"{Fore.MAGENTA}🚀 HACPP模式启动 - 研究员分析阶段...{Style.RESET_ALL}")
         project_info = hacpp_client._get_project_structure()
         user_input = f"""
 用户需求: {user_input}
-
 当前项目结构:
 {project_info}
-
-请分析此需求，并制定一个详细的计划。你可以使用 `read_file` 和 `code_search` 工具来收集更多信息。当你完成所有信息收集和规划后，**你必须通过调用 `<task_complete><summary>...</summary></task_complete>` 工具来结束你的工作**。这是你唯一的结束方式，也是将计划移交给执行者的信号。
+请分析此需求并制定详细计划。使用 `read_file` 和 `code_search` 收集信息。完成后，**必须调用 `<task_complete>` 工具**来移交计划。
 """
 
     print(f"{Fore.CYAN}AI助手正在处理您的请求...{Style.RESET_ALL}")
-
-    # 启用输出监控
     enable_print_monitoring()
 
-    # 自动恢复标志和计数器
-    auto_recovery_triggered = False
-    recovery_count = 0
-    max_recoveries = 3
-
-    def on_output_timeout():
-        """输出超时时的自动恢复回调"""
-        nonlocal auto_recovery_triggered, recovery_count
-        if recovery_count < max_recoveries:
-            recovery_count += 1
-            auto_recovery_triggered = True
-            print(f"{Fore.YELLOW}🔄 自动恢复 ({recovery_count}/{max_recoveries})...{Style.RESET_ALL}")
-        else:
-            print(f"{Fore.RED}⚠️ 已达到最大恢复次数 ({max_recoveries})，停止自动恢复{Style.RESET_ALL}")
-            stop_output_monitoring()
-
-    # 根据HACPP模式选择使用的模型
-    model_to_use = None
-    if hacpp_mode.is_hacpp_active():
-        if hacpp_mode.phase == "researching":
-            model_to_use = hacpp_mode.cheap_model
-        # 如果是 executing 阶段，则 model_to_use 保持 None，使用默认的贵模型
-
-
-
-    # 处理AI响应和工具调用，添加循环计数器防止无限循环
-    max_iterations = 50  # 增加迭代次数以适应HACPP模式
+    max_iterations = 50
     iteration_count = 0
     next_message_to_ai = user_input
+    inherited_plan = None
+    inherited_plan = None
 
     try:
-        start_output_monitoring(on_output_timeout, timeout_seconds=15)
+        start_output_monitoring(timeout_seconds=15)
 
         while iteration_count < max_iterations:
             iteration_count += 1
 
-            # 决定本次循环使用哪个模型
-            model_to_use = None
-            if hacpp_mode.is_hacpp_active() and hacpp_mode.phase == "researching":
-                model_to_use = hacpp_mode.cheap_model
+            if inherited_plan:
+                print(f"{Fore.MAGENTA}🧬 继承计划: {inherited_plan['next']}{Style.RESET_ALL}")
+                message_with_plan = f"""
+[Inherited Plan]
+My previous action was: {inherited_plan['completed']}
+My mandatory next step is: {inherited_plan['next']}
 
-            # 发送消息给AI
+[Your New Task]
+{next_message_to_ai}
+"""
+                next_message_to_ai = message_with_plan
+                inherited_plan = None
+
+            if inherited_plan:
+                print(f"{Fore.MAGENTA}🧬 继承计划: {inherited_plan['next']}{Style.RESET_ALL}")
+                message_with_plan = f"""
+[Inherited Plan]
+My previous action was: {inherited_plan['completed']}
+My mandatory next step is: {inherited_plan['next']}
+
+[Your New Task]
+{next_message_to_ai}
+"""
+                next_message_to_ai = message_with_plan
+                inherited_plan = None
+
+            model_to_use = hacpp_mode.cheap_model if hacpp_mode.is_hacpp_active() and hacpp_mode.phase == "researching" else None
             ai_response_text = ai_client.send_message_non_blocking(next_message_to_ai, model_override=model_to_use)
 
             if not ai_response_text or any(keyword in ai_response_text.lower() for keyword in ['error', 'timeout', '任务已被用户中断']):
                 print(f"\n{Fore.RED}⚠️ AI 错误: {ai_response_text}{Style.RESET_ALL}")
                 break
 
-            # 处理AI的响应
             result = ai_tool_processor.process_response(ai_response_text)
 
-            # HACPP状态机：检查是否需要交接
+            if result.get('has_tool') and result.get('tool_result'):
+                tool_output = result.get('tool_result')
+                if tool_output and "PLAN::COMPLETED:" in tool_output:
+                    plan_part_list = [res for res in tool_output.split('\n') if res.startswith("PLAN::")]
+                    if plan_part_list:
+                        plan_part = plan_part_list[0]
+                        completed_match = re.search(r"COMPLETED:(.*?)::NEXT:", plan_part)
+                        next_match = re.search(r"::NEXT:(.*)", plan_part)
+                        if completed_match and next_match:
+                            inherited_plan = {"completed": completed_match.group(1).strip(), "next": next_match.group(1).strip()}
+                            clean_tool_result = "\n".join([res for res in tool_output.split('\n') if not res.startswith("PLAN::")])
+                            result['tool_result'] = clean_tool_result.strip()
+
             if hacpp_mode.is_hacpp_active() and result.get('is_handover'):
                 print(f"\n{Fore.MAGENTA}HACPP 交接：研究员分析完成，执行者接管...{Style.RESET_ALL}")
                 hacpp_mode.phase = "executing"
                 summary = result.get('summary', '没有提供总结。')
+                next_message_to_ai = f"[HACPP模式交接]\n研究员的计划: {summary}\n原始用户需求: {original_user_input}\n作为执行者AI，请开始执行此计划。"
+                ai_client.clear_history()
+                continue
 
-                handover_prompt = f"""
-[HACPP模式交接]
-研究员的计划:
-{summary}
-
-原始用户需求:
-{original_user_input}
-
-作为执行者AI，请开始执行此计划。
-"""
-                next_message_to_ai = handover_prompt
-                ai_client.clear_history() # 为执行者提供一个干净的上下文
-                continue # 立即开始下一次循环，处理交接指令
-
-            # 显示AI的思考过程和工具结果
             if result.get('display_text') and result['display_text'].strip():
                 print(f"\n{Fore.GREEN}AI: {result['display_text']}{Style.RESET_ALL}")
             if result.get('has_tool') and result.get('tool_result'):
-                print(f"{Fore.YELLOW}📋 结果: {result.get('tool_result')}{Style.RESET_ALL}")
+                if not (hacpp_mode.is_hacpp_active() and hacpp_mode.phase == "researching"):
+                    tool_result_text = result.get('tool_result', '')
+                    executed_tools = result.get('executed_tools', [])
 
-            # 如果需要继续，准备下一次循环的消息
+                    # 仅当不是成功的execute_command时才打印结果，以避免重复
+                    is_successful_command = 'execute_command' in executed_tools and "命令执行成功" in tool_result_text
+                    if not is_successful_command:
+                        print(f"{Fore.YELLOW}📋 结果: {tool_result_text}{Style.RESET_ALL}")
+
             if result.get('should_continue'):
                 print(f"\n{Fore.CYAN}AI 继续处理... (步骤 {iteration_count}/{max_iterations}){Style.RESET_ALL}")
                 next_message_to_ai = f"工具执行结果: {result['tool_result']}"
             else:
-                break # 任务完成或无需继续，退出循环
+                break
 
     except KeyboardInterrupt:
         print(f"\n{Fore.YELLOW}⚠️ 用户中断了处理流程{Style.RESET_ALL}")
