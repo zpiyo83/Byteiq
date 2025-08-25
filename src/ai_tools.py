@@ -256,7 +256,7 @@ class AIToolProcessor:
             'display_text': self._remove_xml_tags(ai_response),
         }
 
-    def read_file(self, path):
+    def read_file(self, path, start_line=None, end_line=None):
         """读取文件工具"""
         try:
             if not os.path.exists(path):
