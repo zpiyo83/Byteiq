@@ -39,7 +39,7 @@ def process_ai_conversation(user_input):
     iteration_count = 0
     next_message_to_ai = user_input
     inherited_plan = None
-    inherited_plan = None
+    original_request_reminder = f"[原始用户需求提醒] {user_input}" if user_input else ""
 
     try:
         start_output_monitoring(timeout_seconds=15)
@@ -47,34 +47,39 @@ def process_ai_conversation(user_input):
         while iteration_count < max_iterations:
             iteration_count += 1
 
+            # 在每次迭代中提醒AI原始需求
+            if iteration_count > 1 and original_request_reminder:
+                print(f"{Fore.BLUE}📋 原始需求提醒: {user_input[:50]}...{Style.RESET_ALL}")
+
             if inherited_plan:
-                print(f"{Fore.MAGENTA}🧬 继承计划: {inherited_plan['next']}{Style.RESET_ALL}")
+                print(f"{Fore.MAGENTA}{'='*60}{Style.RESET_ALL}")
+                print(f"{Fore.MAGENTA}🧬 继承计划 (第 {iteration_count} 步){Style.RESET_ALL}")
+                print(f"{Fore.MAGENTA}先前完成: {inherited_plan['completed']}{Style.RESET_ALL}")
+                print(f"{Fore.MAGENTA}下一步计划: {inherited_plan['next']}{Style.RESET_ALL}")
+                print(f"{Fore.MAGENTA}{'='*60}{Style.RESET_ALL}")
+                
                 message_with_plan = f"""
-[Inherited Plan]
+[Inherited Plan - STEP {iteration_count}]
 My previous action was: {inherited_plan['completed']}
 My mandatory next step is: {inherited_plan['next']}
 
 [Your New Task]
 {next_message_to_ai}
-"""
-                next_message_to_ai = message_with_plan
-                inherited_plan = None
 
-            if inherited_plan:
-                print(f"{Fore.MAGENTA}🧬 继承计划: {inherited_plan['next']}{Style.RESET_ALL}")
-                message_with_plan = f"""
-[Inherited Plan]
-My previous action was: {inherited_plan['completed']}
-My mandatory next step is: {inherited_plan['next']}
+[Original User Request Reminder - DO NOT FORGET]
+{original_request_reminder}
 
-[Your New Task]
-{next_message_to_ai}
+[IMPORTANT INSTRUCTIONS]
+1. Execute the inherited plan as your top priority
+2. Do not forget the original user request
+3. After completing this step, use the <plan> tool to define your next step
+4. Only use <task_complete> when the entire original task is finished
 """
                 next_message_to_ai = message_with_plan
                 inherited_plan = None
 
             model_to_use = hacpp_mode.cheap_model if hacpp_mode.is_hacpp_active() and hacpp_mode.phase == "researching" else None
-            ai_response_text = ai_client.send_message_non_blocking(next_message_to_ai, model_override=model_to_use)
+            ai_response_text = ai_client.send_message_streaming(next_message_to_ai, model_override=model_to_use)
 
             if not ai_response_text or any(keyword in ai_response_text.lower() for keyword in ['error', 'timeout', '任务已被用户中断']):
                 print(f"\n{Fore.RED}⚠️ AI 错误: {ai_response_text}{Style.RESET_ALL}")
@@ -88,6 +93,7 @@ My mandatory next step is: {inherited_plan['next']}
                     plan_part_list = [res for res in tool_output.split('\n') if res.startswith("PLAN::")]
                     if plan_part_list:
                         plan_part = plan_part_list[0]
+                        # 更新正则表达式以适应新的计划格式（包含时间戳）
                         completed_match = re.search(r"COMPLETED:(.*?)::NEXT:", plan_part)
                         next_match = re.search(r"::NEXT:(.*)", plan_part)
                         if completed_match and next_match:
@@ -105,6 +111,11 @@ My mandatory next step is: {inherited_plan['next']}
 
             if result.get('display_text') and result['display_text'].strip():
                 print(f"\n{Fore.GREEN}AI: {result['display_text']}{Style.RESET_ALL}")
+                
+                # 显示原始需求提醒（如果有的话）
+                if iteration_count > 1 and original_request_reminder:
+                    print(f"{Fore.BLUE}📋 原始需求提醒: {user_input[:80]}...{Style.RESET_ALL}")
+            
             if result.get('has_tool') and result.get('tool_result'):
                 if not (hacpp_mode.is_hacpp_active() and hacpp_mode.phase == "researching"):
                     tool_result_text = result.get('tool_result', '')
@@ -114,6 +125,10 @@ My mandatory next step is: {inherited_plan['next']}
                     is_successful_command = 'execute_command' in executed_tools and "命令执行成功" in tool_result_text
                     if not is_successful_command:
                         print(f"{Fore.YELLOW}📋 结果: {tool_result_text}{Style.RESET_ALL}")
+                        
+                        # 显示原始需求提醒（如果有的话）
+                        if iteration_count > 1 and original_request_reminder:
+                            print(f"{Fore.BLUE}📋 原始需求提醒: {user_input[:80]}...{Style.RESET_ALL}")
 
             if result.get('should_continue'):
                 print(f"\n{Fore.CYAN}AI 继续处理... (步骤 {iteration_count}/{max_iterations}){Style.RESET_ALL}")

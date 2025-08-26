@@ -594,14 +594,10 @@ class AIToolProcessor:
         """计划工具，用于生成继承计划"""
         # 这个工具的核心作用是结构化地返回计划，供command_processor捕获
         # 它返回一个特殊格式的字符串，以便于解析
-        return f"PLAN::COMPLETED:{completed_action}::NEXT:{next_step}"
-
-
-    def plan(self, completed_action, next_step):
-        """计划工具，用于生成继承计划"""
-        # 这个工具的核心作用是结构化地返回计划，供command_processor捕获
-        # 它返回一个特殊格式的字符串，以便于解析
-        return f"PLAN::COMPLETED:{completed_action}::NEXT:{next_step}"
+        # 增强计划信息，包含更多上下文
+        import time
+        timestamp = time.strftime("%H:%M:%S")
+        return f"PLAN::{timestamp}::COMPLETED:{completed_action}::NEXT:{next_step}"
 
     def code_search(self, keyword):
         """在项目中搜索代码"""

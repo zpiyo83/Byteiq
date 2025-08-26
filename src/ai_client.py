@@ -8,6 +8,7 @@ import requests
 import threading
 import time
 import queue
+import sys
 from concurrent.futures import ThreadPoolExecutor, Future
 from .thinking_animation import start_thinking, stop_thinking
 from .keyboard_handler import (
@@ -18,6 +19,7 @@ from .keyboard_handler import (
 from .output_monitor import start_output_monitoring, stop_output_monitoring, enable_print_monitoring
 from .config import load_config, DEFAULT_API_URL
 from .debug_config import is_raw_output_enabled
+from colorama import Fore, Style
 
 def format_ai_response(raw_response, api_result=None):
     """
@@ -233,6 +235,103 @@ class AIClient:
         # 提交异步请求
         return self.network_manager.submit_request(self._make_network_request, data, headers)
 
+    def send_message_streaming(self, user_input, include_structure=True, model_override=None, is_continuation=False):
+        """流式发送消息给AI，实时显示响应"""
+        config = load_config()
+
+        if not config.get('api_key'):
+            return "错误：请先设置API密钥"
+
+        # 决定使用哪个模型
+        model_to_use = model_override if model_override else config.get('model', 'gpt-3.5-turbo')
+
+        # 构建请求数据
+        data = {
+            "model": model_to_use,
+            "messages": [
+                {"role": "system", "content": self.get_system_prompt()},
+                *self.conversation_history,
+                {"role": "user", "content": user_input}
+            ],
+            "temperature": 0.7,
+            "max_tokens": 6000,
+            "stream": True  # 启用流式输出
+        }
+
+        headers = {
+            "Authorization": f"Bearer {config['api_key']}",
+            "Content-Type": "application/json"
+        }
+
+        # 启动任务监控
+        start_task_monitoring(interrupt_current_task)
+
+        try:
+            print(f"{Fore.GREEN}AI: {Style.RESET_ALL}", end="", flush=True)
+            
+            # 发送流式请求
+            response = requests.post(self.api_url, json=data, headers=headers, stream=True, timeout=180)
+            
+            if response.status_code == 401:
+                return f"认证失败: API密钥无效或未授权。请检查您的密钥。"
+            
+            if response.status_code != 200:
+                return f"API请求失败: {response.status_code} - {response.text}"
+
+            full_response = ""
+            
+            # 逐行处理流式响应
+            for line in response.iter_lines():
+                # 检查用户中断
+                if is_task_interrupted():
+                    reset_interrupt_flag()
+                    print(f"\n{Fore.YELLOW}[任务已被用户中断]{Style.RESET_ALL}")
+                    return "任务已被用户中断"
+                
+                if line:
+                    line_str = line.decode('utf-8')
+                    if line_str.startswith('data: '):
+                        data_str = line_str[6:]  # 移除 'data: ' 前缀
+                        
+                        if data_str.strip() == '[DONE]':
+                            break
+                        
+                        try:
+                            chunk_data = json.loads(data_str)
+                            if 'choices' in chunk_data and len(chunk_data['choices']) > 0:
+                                delta = chunk_data['choices'][0].get('delta', {})
+                                if 'content' in delta:
+                                    content = delta['content']
+                                    print(content, end="", flush=True)
+                                    full_response += content
+                        except json.JSONDecodeError:
+                            continue
+            
+            print()  # 换行
+            
+            # 添加到对话历史
+            self.conversation_history.append({"role": "user", "content": user_input})
+            self.conversation_history.append({"role": "assistant", "content": full_response})
+
+            # 限制历史长度，但保留更多上下文（从10增加到20）
+            if len(self.conversation_history) > 20:
+                self.conversation_history = self.conversation_history[-20:]
+
+            return full_response
+
+        except requests.exceptions.Timeout:
+            return "请求超时，请检查网络连接或稍后重试"
+        except requests.exceptions.RequestException as e:
+            return f"网络错误: {str(e)}"
+        except Exception as e:
+            return f"发生错误: {str(e)}"
+        finally:
+            # 确保停止监控
+            try:
+                stop_task_monitoring()
+            except:
+                pass
+
     def send_message_non_blocking(self, user_input, include_structure=True, model_override=None):
         """非阻塞发送消息给AI"""
         # 启动思考动画
@@ -280,9 +379,9 @@ class AIClient:
                         self.conversation_history.append({"role": "user", "content": user_input})
                         self.conversation_history.append({"role": "assistant", "content": ai_response})
 
-                        # 限制历史长度
-                        if len(self.conversation_history) > 10:
-                            self.conversation_history = self.conversation_history[-10:]
+                        # 限制历史长度，但保留更多上下文（从10增加到20）
+                        if len(self.conversation_history) > 20:
+                            self.conversation_history = self.conversation_history[-20:]
 
                         # 根据调试配置格式化响应
                         return format_ai_response(ai_response, result)
@@ -366,7 +465,7 @@ class AIClient:
                 self.conversation_history.append({"role": "user", "content": user_input})
                 self.conversation_history.append({"role": "assistant", "content": ai_response})
 
-                # 限制历史长度
+                # 限制历史长度，但保留更多上下文（保持20条消息）
                 if len(self.conversation_history) > 20:
                     self.conversation_history = self.conversation_history[-20:]
 
