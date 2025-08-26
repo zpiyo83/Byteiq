@@ -305,7 +305,15 @@ class AIToolProcessor:
             print(f"  • {line_count} lines viewed")
             print(f"  • {char_count} characters")
 
-            return f"成功读取文件 {path}，内容长度: {len(content)} 字符"
+            # 返回包含实际文件内容的详细结果，供引导者AI使用
+            return {
+                'status': 'success',
+                'message': f"成功读取文件 {path}，内容长度: {len(content)} 字符",
+                'file_path': path,
+                'content': content,
+                'line_count': line_count,
+                'char_count': char_count
+            }
         except Exception as e:
             return f"读取文件失败: {str(e)}"
 

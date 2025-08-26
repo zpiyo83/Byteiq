@@ -12,7 +12,7 @@ def get_available_commands():
     return [
         "/help", "/status", "/clear", "/pwd", "/ls", "/cd", "/exit",
         "/s", "/mode", "/clear-history", "/todo", "/todos", "/compact",
-        "/hacpp"
+        "/hacpp", "/fix"
     ]
 
 def get_command_descriptions():
@@ -31,7 +31,8 @@ def get_command_descriptions():
         "/todo": "TODO任务管理",
         "/todos": "显示TODO列表",
         "/compact": "压缩上下文",
-        "/hacpp": "HACPP双AI协作模式"
+        "/hacpp": "HACPP双AI协作模式",
+        "/fix": "AI辅助调试"
     }
 
 def filter_commands(partial_input):

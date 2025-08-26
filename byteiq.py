@@ -132,6 +132,16 @@ def process_ai_conversation(user_input):
     if not config.get('api_key'):
         print(f"{Fore.RED}错误：请先设置API密钥。使用 /s 命令进入设置。{Style.RESET_ALL}")
         return
+    
+    # 自动创建TODO任务
+    try:
+        from src.auto_todo import auto_todo_manager
+        task_id = auto_todo_manager.create_todo_from_request(user_input)
+        if task_id:
+            print(f"{Fore.CYAN}📝 已自动创建任务: {auto_todo_manager.active_tasks[task_id]['title']}{Style.RESET_ALL}")
+    except Exception as e:
+        # 静默处理，不中断主流程
+        pass
 
     # 检查是否处于HACPP模式
     from src.modes import hacpp_mode
@@ -281,6 +291,13 @@ def handle_special_commands(user_input):
         from src.command_processor import handle_hacpp_command
         command_parts = user_input.split()
         handle_hacpp_command(command_parts)
+        return True
+
+    # AI辅助调试命令
+    if user_input.lower().startswith('/fix'):
+        from src.command_processor import handle_fix_command
+        command_parts = user_input.split()
+        handle_fix_command(command_parts)
         return True
 
     # 退出命令

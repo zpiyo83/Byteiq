@@ -12,6 +12,7 @@ from .ui import print_welcome_screen
 from .ai_client import ai_client
 from .ai_tools import ai_tool_processor
 from .output_monitor import start_output_monitoring, stop_output_monitoring, enable_print_monitoring
+from .debug_session import debug_session
 
 def process_ai_conversation(user_input):
     """处理AI对话，包含继承计划逻辑"""
@@ -149,6 +150,70 @@ My mandatory next step is: {inherited_plan['next']}
     if iteration_count >= max_iterations:
         print(f"\n{Fore.YELLOW}⚠️ 已达到最大处理步骤数 ({max_iterations})，任务可能需要手动干预。{Style.RESET_ALL}")
 
+def handle_fix_command(command_parts):
+    """处理/fix命令 - AI辅助调试"""
+    if len(command_parts) == 1:
+        # 只输入了 /fix，显示帮助
+        print(f"{Fore.CYAN}AI辅助调试命令帮助:{Style.RESET_ALL}")
+        print(f"  /fix bug <描述>     - 开始AI辅助调试会话")
+        print(f"  /fix status         - 查看当前调试会话状态")
+        print(f"  /fix end           - 结束当前调试会话")
+        print(f"\n{Fore.YELLOW}示例:{Style.RESET_ALL}")
+        print(f"  /fix bug 程序启动时出现模块导入错误")
+        return
+
+    subcommand = command_parts[1].lower()
+    
+    if subcommand == 'bug':
+        # /fix bug 命令 - 开始调试会话
+        if len(command_parts) < 3:
+            print(f"{Fore.RED}错误：请提供bug描述{Style.RESET_ALL}")
+            print(f"{Fore.YELLOW}用法: /fix bug <bug描述>{Style.RESET_ALL}")
+            return
+        
+        # 检查是否已有活动会话
+        if debug_session.is_active:
+            print(f"{Fore.YELLOW}⚠️ 已有活动的调试会话，请先结束当前会话{Style.RESET_ALL}")
+            print(debug_session.get_session_status())
+            return
+        
+        # 获取bug描述
+        bug_description = ' '.join(command_parts[2:])
+        
+        # 询问引导者AI模型
+        print(f"{Fore.CYAN}请输入引导者AI模型名称:{Style.RESET_ALL}")
+        print(f"{Fore.WHITE}建议使用: gpt-4, claude-3-sonnet, gpt-3.5-turbo 等{Style.RESET_ALL}")
+        guide_model = input(f"{Fore.YELLOW}引导者AI模型: {Style.RESET_ALL}").strip()
+        
+        if not guide_model:
+            print(f"{Fore.RED}错误：引导者AI模型名称不能为空{Style.RESET_ALL}")
+            return
+        
+        # 开始调试会话
+        print(f"\n{Fore.CYAN}正在启动AI辅助调试会话...{Style.RESET_ALL}")
+        success = debug_session.start_session(bug_description, guide_model)
+        
+        if not success:
+            print(f"{Fore.RED}❌ 调试会话启动失败{Style.RESET_ALL}")
+    
+    elif subcommand == 'status':
+        # /fix status 命令 - 显示调试会话状态
+        status = debug_session.get_session_status()
+        print(f"{Fore.CYAN}调试会话状态:{Style.RESET_ALL}")
+        print(status)
+    
+    elif subcommand == 'end':
+        # /fix end 命令 - 结束调试会话
+        if debug_session.is_active:
+            debug_session.end_session()
+            print(f"{Fore.GREEN}✓ 调试会话已结束{Style.RESET_ALL}")
+        else:
+            print(f"{Fore.YELLOW}没有活动的调试会话{Style.RESET_ALL}")
+    
+    else:
+        print(f"{Fore.RED}未知的fix子命令: {subcommand}{Style.RESET_ALL}")
+        print(f"{Fore.CYAN}可用命令: bug, status, end{Style.RESET_ALL}")
+
 def handle_hacpp_command(command_parts):
     """处理HACPP模式命令"""
     if len(command_parts) == 1:
@@ -266,6 +331,10 @@ def process_command(user_input):
     # HACPP模式命令
     elif command == '/hacpp':
         handle_hacpp_command(command_parts)
+
+    # AI辅助调试命令
+    elif command == '/fix':
+        handle_fix_command(command_parts)
 
     # 清屏命令
     elif command == '/clear':
