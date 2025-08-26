@@ -64,7 +64,7 @@ class AIToolProcessor:
         """处理AI响应，提取和执行工具调用"""
         # 查找XML工具调用
         tool_patterns = {
-            'read_file': r'<read_file><path>(.*?)</path>(?:<start_line>(\d*)</start_line><end_line>(\d*)</end_line>)?</read_file>',
+            'read_file': r'<read_file><path>(.*?)</path></read_file>',
             'precise_reading': r'<precise_reading><path>(.*?)</path><start_line>(.*?)</start_line><end_line>(.*?)</end_line></precise_reading>',
             'write_file': r'<write_file><path>(.*?)</path><content>(.*?)</content></write_file>',
             'create_file': r'<create_file><path>(.*?)</path><content>(.*?)</content></create_file>',
@@ -153,6 +153,14 @@ class AIToolProcessor:
                 else:  # Auto-execute
                     tool_result, tool_summary = self._execute_tool_with_matches(tool_name, matches)
 
+                # 特殊处理task_complete工具
+                if tool_name == 'task_complete':
+                    # 将task_complete的返回结果中的should_continue标志传递出去
+                    tool_result_dict = json.loads(tool_result) if isinstance(tool_result, str) else tool_result
+                    if tool_result_dict.get('should_continue'):
+                        result['should_continue'] = True
+                        result['summary'] = tool_result_dict.get('summary', '')
+
                 all_tool_results.append(tool_result)
                 executed_tool_names.append(tool_name)
                 # 始终打印我们生成的摘要，因为它现在是格式化输出的关键部分
@@ -234,25 +242,49 @@ class AIToolProcessor:
         return clean_text.strip()
 
     def process_response_for_researcher(self, ai_response):
-        """A simplified processor for the Researcher phase, only allowing read-only tools."""
+        """便宜AI阶段的工具处理器，支持读取文件和执行命令"""
         tool_patterns = {
             'read_file': r'<read_file><path>(.*?)</path></read_file>',
-            'code_search': r'<code_search><keyword>(.*?)</keyword></code_search>',
+            'execute_command': r'<execute_command><command>(.*?)</command></execute_command>',
         }
 
-        tool_found = False
-        tool_result = ""
+        # 查找所有工具调用，并按其在文本中的出现顺序排序
+        found_tool_calls = []
         for tool_name, pattern in tool_patterns.items():
-            matches = re.findall(pattern, ai_response, re.DOTALL)
-            if matches:
-                tool_found = True
-                # Researcher tools are always executed automatically
-                tool_result = self._execute_tool_with_matches(tool_name, matches)
-                break
+            for match in re.finditer(pattern, ai_response, re.DOTALL):
+                found_tool_calls.append({
+                    "tool_name": tool_name,
+                    "matches": [match.groups()],
+                    "start_pos": match.start()
+                })
+
+        # 按工具在文本中的出现位置排序
+        found_tool_calls.sort(key=lambda x: x['start_pos'])
+
+        all_tool_results = []
+        executed_tool_names = []
+        tool_found = len(found_tool_calls) > 0
+
+        # 依次处理所有找到的工具
+        for tool_call in found_tool_calls:
+            tool_name = tool_call['tool_name']
+            matches = tool_call['matches']
+            
+            # 便宜AI的工具总是自动执行
+            if tool_name in self.tools:
+                tool_result, tool_summary = self._execute_tool_with_matches(tool_name, matches)
+                # 确保tool_result是字符串
+                if tool_result is not None:
+                    all_tool_results.append(str(tool_result))
+                executed_tool_names.append(tool_name)
+
+        # 合并所有工具结果
+        combined_result = '\n'.join(all_tool_results) if all_tool_results else ""
 
         return {
             'has_tool': tool_found,
-            'tool_result': tool_result,
+            'tool_result': combined_result,
+            'executed_tools': executed_tool_names,
             'display_text': self._remove_xml_tags(ai_response),
         }
 
@@ -530,8 +562,33 @@ class AIToolProcessor:
 
     def task_complete(self, summary):
         """任务完成工具"""
-        return f"任务已完成: {summary}"
-
+        from .modes import hacpp_mode
+        
+        if hacpp_mode.is_hacpp_active():
+            # 在HACPP模式下，便宜AI调用task_complete时不结束流程
+            if hacpp_mode.phase == "researching":
+                return {
+                    "success": True,
+                    "message": "研究员分析完成，准备交接给执行者",
+                    "summary": summary,
+                    "should_continue": True  # 添加标志表示需要继续流程
+                }
+            # 贵AI调用task_complete时结束流程
+            else:
+                return {
+                    "success": True,
+                    "message": "任务完成，流程结束",
+                    "summary": summary,
+                    "should_continue": False
+                }
+        else:
+            # 非HACPP模式直接结束
+            return {
+                "success": True,
+                "message": "任务完成，流程结束",
+                "summary": summary,
+                "should_continue": False
+            }
 
     def plan(self, completed_action, next_step):
         """计划工具，用于生成继承计划"""

@@ -205,7 +205,6 @@ def process_ai_conversation(user_input):
 
         # 🚨 如果需要继续，继续对话（包括工具执行失败的情况）
         if result['has_tool']:
-            print(f"\n{Fore.CYAN}AI继续处理... (第{iteration_count}次){Style.RESET_ALL}")
             # 将工具执行结果发送回AI，包括错误信息
             ai_response = ai_client.send_message(f"工具执行结果: {result['tool_result']}", include_structure=False)
 
@@ -216,7 +215,6 @@ def process_ai_conversation(user_input):
         else:
             # 没有工具调用的情况，也要检查是否应该继续
             if result['should_continue']:
-                print(f"\n{Fore.CYAN}AI继续处理... (第{iteration_count}次){Style.RESET_ALL}")
                 # 发送一个继续的提示
                 ai_response = ai_client.send_message("请继续完成任务。", include_structure=False)
             else:
