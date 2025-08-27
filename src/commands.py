@@ -12,7 +12,7 @@ def get_available_commands():
     return [
         "/help", "/status", "/clear", "/pwd", "/ls", "/cd", "/exit",
         "/s", "/mode", "/clear-history", "/todo", "/todos", "/compact",
-        "/hacpp", "/fix"
+        "/hacpp", "/fix", "/analyze"
     ]
 
 def get_command_descriptions():
@@ -32,7 +32,8 @@ def get_command_descriptions():
         "/todos": "显示TODO列表",
         "/compact": "压缩上下文",
         "/hacpp": "HACPP双AI协作模式",
-        "/fix": "AI辅助调试"
+        "/fix": "AI辅助调试",
+        "/analyze": "分析项目并生成BYTEIQ.md配置文件"
     }
 
 def filter_commands(partial_input):
@@ -71,6 +72,7 @@ def show_help():
   {Fore.WHITE}/mode{Style.RESET_ALL}     - 切换工作模式
   {Fore.WHITE}/clear-history{Style.RESET_ALL} - 清除AI对话历史
   {Fore.WHITE}/compact{Style.RESET_ALL}      - 压缩上下文
+  {Fore.WHITE}/analyze{Style.RESET_ALL}      - 分析项目并生成BYTEIQ.md配置文件
 
 {Fore.MAGENTA}HACPP模式 (双AI协作):{Style.RESET_ALL}
   {Fore.WHITE}/HACPP{Style.RESET_ALL}        - 激活HACPP模式（需要测试码）

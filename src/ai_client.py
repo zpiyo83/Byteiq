@@ -458,7 +458,7 @@ class AIClient:
                 "model": self.config.get("model", "gpt-3.5-turbo"),
                 "messages": messages,
                 "temperature": 0.7,
-                "max_tokens": 2000
+                "max_tokens": 6000
             }
 
             headers = {

@@ -154,7 +154,15 @@ def process_ai_conversation(user_input):
         return
 
     # 重置中断标志
+    from src.keyboard_handler import reset_interrupt_flag, is_task_interrupted
     reset_interrupt_flag()
+
+    # 使用延迟加载器获取AI工具处理器
+    from src.lazy_loader import lazy_loader
+    ai_tool_processor = lazy_loader.get_ai_tools()
+    if not ai_tool_processor:
+        # 回退到直接导入
+        from src.ai_tools import ai_tool_processor
 
     # 发送消息给AI（已集成思考动画和ESC监控）
     ai_response = ai_client.send_message(user_input)
@@ -311,6 +319,11 @@ def handle_special_commands(user_input):
         handle_agent_command(user_input)
         return True
 
+    # 项目分析命令
+    if user_input.lower() in ['/analyze']:
+        handle_analyze_command()
+        return True
+
     # 清除命令（增强版）
     if user_input.lower() in ['/clear', '/c']:
         handle_clear_command()
@@ -322,6 +335,51 @@ def handle_special_commands(user_input):
         return "exit"
 
     return False
+
+def handle_analyze_command():
+    """处理项目分析命令"""
+    try:
+        print(f"{Fore.CYAN}🔍 开始分析项目...{Style.RESET_ALL}")
+        
+        # 使用延迟加载器获取项目分析器
+        from src.lazy_loader import lazy_loader
+        project_analyzer_module = lazy_loader.get_module('src.project_analyzer')
+        
+        if project_analyzer_module:
+            analyzer = project_analyzer_module.project_analyzer
+        else:
+            # 回退到直接导入
+            from src.project_analyzer import project_analyzer as analyzer
+        
+        # 分析项目
+        analysis_result = analyzer.analyze_project()
+        
+        # 生成BYTEIQ.md文件
+        output_path = analyzer.generate_byteiq_md()
+        
+        print(f"\n{Fore.GREEN}✅ 项目分析完成！{Style.RESET_ALL}")
+        print(f"{Fore.CYAN}📄 BYTEIQ.md 配置文件已生成: {output_path}{Style.RESET_ALL}")
+        
+        # 显示分析摘要
+        print(f"\n{Fore.YELLOW}📊 分析摘要:{Style.RESET_ALL}")
+        print(f"  项目类型: {analysis_result['project_type']}")
+        print(f"  技术栈: {', '.join(analysis_result['tech_stack'])}")
+        print(f"  文件总数: {analysis_result['file_structure']['total_files']}")
+        print(f"  项目大小: {analysis_result['project_info']['size']['size_mb']} MB")
+        
+        if analysis_result['code_features']['languages']:
+            print(f"  编程语言: {', '.join(analysis_result['code_features']['languages'])}")
+        
+        if analysis_result['code_features']['frameworks']:
+            print(f"  使用框架: {', '.join(analysis_result['code_features']['frameworks'])}")
+        
+        print(f"\n{Fore.GREEN}💡 提示: BYTEIQ.md 文件包含了项目的详细配置，AI助手将根据此配置提供更精准的帮助。{Style.RESET_ALL}")
+        
+    except Exception as e:
+        print(f"{Fore.RED}❌ 项目分析失败: {e}{Style.RESET_ALL}")
+        import traceback
+        print(f"{Fore.YELLOW}详细错误信息:{Style.RESET_ALL}")
+        traceback.print_exc()
 
 def handle_context_command(user_input):
     """处理上下文管理命令"""
