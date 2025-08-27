@@ -12,7 +12,7 @@ def get_available_commands():
     return [
         "/help", "/status", "/clear", "/pwd", "/ls", "/cd", "/exit",
         "/s", "/mode", "/clear-history", "/todo", "/todos", "/compact",
-        "/hacpp", "/fix", "/analyze"
+        "/hacpp", "/fix", "/analyze", "/chat", "/export"
     ]
 
 def get_command_descriptions():
@@ -20,7 +20,7 @@ def get_command_descriptions():
     return {
         "/help": "显示帮助信息",
         "/status": "显示当前状态",
-        "/clear": "清屏",
+        "/clear": "清除上下文",
         "/pwd": "显示当前目录",
         "/ls": "列出当前目录文件",
         "/cd": "切换目录",
@@ -33,7 +33,9 @@ def get_command_descriptions():
         "/compact": "压缩上下文",
         "/hacpp": "HACPP双AI协作模式",
         "/fix": "AI辅助调试",
-        "/analyze": "分析项目并生成BYTEIQ.md配置文件"
+        "/analyze": "分析项目并生成BYTEIQ.md配置文件",
+        "/chat": "聊天上下文管理 (save/load)",
+        "/export": "导出上下文到当前目录"
     }
 
 def filter_commands(partial_input):
@@ -60,7 +62,7 @@ def show_help():
 {Fore.CYAN}基础命令:{Style.RESET_ALL}
   {Fore.WHITE}/help{Style.RESET_ALL}     - 显示此帮助信息
   {Fore.WHITE}/status{Style.RESET_ALL}   - 显示当前状态
-  {Fore.WHITE}/clear{Style.RESET_ALL}    - 清屏
+  {Fore.WHITE}/clear{Style.RESET_ALL}    - 清除上下文
   {Fore.WHITE}/pwd{Style.RESET_ALL}      - 显示当前目录
   {Fore.WHITE}/ls{Style.RESET_ALL}       - 列出当前目录文件
   {Fore.WHITE}/cd <dir>{Style.RESET_ALL} - 切换目录
@@ -73,6 +75,9 @@ def show_help():
   {Fore.WHITE}/clear-history{Style.RESET_ALL} - 清除AI对话历史
   {Fore.WHITE}/compact{Style.RESET_ALL}      - 压缩上下文
   {Fore.WHITE}/analyze{Style.RESET_ALL}      - 分析项目并生成BYTEIQ.md配置文件
+  {Fore.WHITE}/chat save{Style.RESET_ALL}    - 保存上下文到软件目录
+  {Fore.WHITE}/chat load{Style.RESET_ALL}    - 交互式加载上下文
+  {Fore.WHITE}/export{Style.RESET_ALL}       - 导出上下文到当前目录
 
 {Fore.MAGENTA}HACPP模式 (双AI协作):{Style.RESET_ALL}
   {Fore.WHITE}/HACPP{Style.RESET_ALL}        - 激活HACPP模式（需要测试码）

@@ -324,6 +324,16 @@ def handle_special_commands(user_input):
         handle_analyze_command()
         return True
 
+    # 聊天上下文管理命令
+    if user_input.lower().startswith('/chat'):
+        handle_chat_command(user_input)
+        return True
+
+    # 导出上下文命令
+    if user_input.lower() in ['/export']:
+        handle_export_command()
+        return True
+
     # 清除命令（增强版）
     if user_input.lower() in ['/clear', '/c']:
         handle_clear_command()
@@ -381,6 +391,52 @@ def handle_analyze_command():
         print(f"{Fore.YELLOW}详细错误信息:{Style.RESET_ALL}")
         traceback.print_exc()
 
+def handle_chat_command(user_input):
+    """处理聊天上下文管理命令"""
+    try:
+        from src.lazy_loader import lazy_loader
+        ai_client = lazy_loader.get_ai_client()
+        if not ai_client:
+            from src.ai_client import ai_client
+        
+        from src.chat_manager import chat_manager
+        
+        parts = user_input.split()
+        if len(parts) == 1:
+            # 显示帮助信息
+            print(f"{Fore.CYAN}聊天上下文管理命令:{Style.RESET_ALL}")
+            print(f"  /chat save    - 保存当前上下文到软件目录")
+            print(f"  /chat load    - 交互式加载已保存的上下文")
+            print(f"  /export       - 导出上下文到当前目录")
+            return
+        
+        subcommand = parts[1].lower()
+        
+        if subcommand == 'save':
+            chat_manager.save_context_interactive(ai_client.context_manager)
+        elif subcommand == 'load':
+            chat_manager.load_context_interactive(ai_client.context_manager)
+        else:
+            print(f"{Fore.YELLOW}未知子命令: {subcommand}{Style.RESET_ALL}")
+            print(f"{Fore.CYAN}可用命令: save, load{Style.RESET_ALL}")
+            
+    except Exception as e:
+        print(f"{Fore.RED}聊天命令处理失败: {e}{Style.RESET_ALL}")
+
+def handle_export_command():
+    """处理导出上下文命令"""
+    try:
+        from src.lazy_loader import lazy_loader
+        ai_client = lazy_loader.get_ai_client()
+        if not ai_client:
+            from src.ai_client import ai_client
+        
+        from src.chat_manager import chat_manager
+        chat_manager.export_context_to_current_dir(ai_client.context_manager)
+        
+    except Exception as e:
+        print(f"{Fore.RED}导出命令处理失败: {e}{Style.RESET_ALL}")
+
 def handle_context_command(user_input):
     """处理上下文管理命令"""
     try:
@@ -420,13 +476,31 @@ def handle_context_command(user_input):
                 print(f"{Fore.GREEN}✓ 已从 {filename} 加载上下文{Style.RESET_ALL}")
             else:
                 print(f"{Fore.YELLOW}⚠️ 无法加载 {filename}{Style.RESET_ALL}")
+        
+        elif parts[1].lower() == 'set':
+            if len(parts) < 3:
+                print(f"{Fore.YELLOW}用法: /context set <token数量>{Style.RESET_ALL}")
+                return
+            
+            try:
+                max_tokens = int(parts[2])
+                ai_client.context_manager.set_max_tokens(max_tokens)
+            except ValueError:
+                print(f"{Fore.RED}❌ 无效的token数量: {parts[2]}{Style.RESET_ALL}")
+            except Exception as e:
+                print(f"{Fore.RED}❌ 设置失败: {e}{Style.RESET_ALL}")
                 
         else:
             print(f"{Fore.CYAN}上下文管理命令:{Style.RESET_ALL}")
-            print("  /context 或 /ctx        - 显示上下文状态")
-            print("  /context clear          - 清除所有上下文")
-            print("  /context save [文件名]  - 保存上下文到文件")
-            print("  /context load [文件名]  - 从文件加载上下文")
+            print(f"  /context          - 显示上下文状态")
+            print(f"  /context clear    - 清除所有上下文")
+            print(f"  /context save [文件名] - 保存上下文到文件")
+            print(f"  /context load [文件名] - 从文件加载上下文")
+            print(f"  /context set <tokens>  - 设置上下文token限制")
+            print(f"\n{Fore.YELLOW}示例:{Style.RESET_ALL}")
+            print(f"  /context set 12800    - 设置上下文限制为12800 tokens")
+            print(f"  /context set 25600    - 设置上下文限制为25600 tokens")
+            print(f"  /context set 180000   - 设置上下文限制为180000 tokens")
             
     except Exception as e:
         print(f"{Fore.RED}上下文命令处理失败: {e}{Style.RESET_ALL}")
@@ -473,35 +547,16 @@ def handle_agent_command(user_input):
         print(f"{Fore.RED}代理命令处理失败: {e}{Style.RESET_ALL}")
 
 def handle_clear_command():
-    """处理增强版清除命令"""
+    """处理清除上下文命令"""
     try:
-        from src.ai_client import ai_client
+        from src.lazy_loader import lazy_loader
+        ai_client = lazy_loader.get_ai_client()
+        if not ai_client:
+            from src.ai_client import ai_client
         
-        print(f"{Fore.YELLOW}🧹 清除选项:{Style.RESET_ALL}")
-        print("  1 - 仅清除对话历史")
-        print("  2 - 清除上下文管理器")
-        print("  3 - 清除代理执行计划")
-        print("  4 - 全部清除")
-        print("  q - 取消")
-        
-        choice = input(f"\n{Fore.WHITE}请选择 > {Style.RESET_ALL}").strip().lower()
-        
-        if choice == '1':
-            ai_client.conversation_history = []
-            print(f"{Fore.GREEN}✓ 对话历史已清除{Style.RESET_ALL}")
-        elif choice == '2':
-            ai_client.context_manager.clear_context()
-        elif choice == '3':
-            ai_client.agent_enhancer.clear_plans()
-        elif choice == '4':
-            ai_client.conversation_history = []
-            ai_client.context_manager.clear_context()
-            ai_client.agent_enhancer.clear_plans()
-            print(f"{Fore.GREEN}✓ 所有数据已清除{Style.RESET_ALL}")
-        elif choice == 'q':
-            print(f"{Fore.YELLOW}已取消{Style.RESET_ALL}")
-        else:
-            print(f"{Fore.YELLOW}无效选择{Style.RESET_ALL}")
+        # 直接清除上下文
+        ai_client.context_manager.clear_context()
+        print(f"{Fore.GREEN}✓ 上下文已清除{Style.RESET_ALL}")
             
     except Exception as e:
         print(f"{Fore.RED}清除命令处理失败: {e}{Style.RESET_ALL}")

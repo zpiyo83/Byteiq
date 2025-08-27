@@ -12,7 +12,7 @@ from colorama import Fore, Style
 class ContextManager:
     """智能上下文管理器"""
     
-    def __init__(self, max_tokens=180000):  # 保留20K token作为缓冲
+    def __init__(self, max_tokens=12800):  # 用户可配置的上下文限制
         self.max_tokens = max_tokens
         self.conversation_history = []
         self.project_context = {}
@@ -314,6 +314,20 @@ class ContextManager:
             "code_contexts": len(self.code_context),
             "has_summary": bool(self.session_summary)
         }
+    
+    def set_max_tokens(self, max_tokens: int):
+        """设置最大token数"""
+        if max_tokens < 1000:
+            raise ValueError("最大token数不能少于1000")
+        if max_tokens > 200000:
+            raise ValueError("最大token数不能超过200000")
+        
+        self.max_tokens = max_tokens
+        print(f"{Fore.GREEN}✓ 上下文限制已设置为 {max_tokens:,} tokens{Style.RESET_ALL}")
+        
+        # 如果当前上下文超出限制，触发压缩
+        if self._calculate_total_tokens() > max_tokens:
+            self._optimize_context()
 
 # 全局上下文管理器实例
 context_manager = ContextManager()
