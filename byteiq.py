@@ -69,9 +69,9 @@ def set_language_interactive():
         cfg = load_config()
         cfg["language"] = lang_map[choice]
         if save_config(cfg):
-            print(f"{Fore.GREEN}✓ 语言设置已保存: {lang_map[choice]}{Style.RESET_ALL}")
+            print(f"  • 语言设置已保存: {lang_map[choice]}")
         else:
-            print(f"{Fore.RED}✗ 保存失败{Style.RESET_ALL}")
+            print(f"  • 保存失败")
 
 def set_api_key_interactive():
     """交互式设置API密钥"""
@@ -84,9 +84,9 @@ def set_api_key_interactive():
         cfg = load_config()
         cfg["api_key"] = api_key
         if save_config(cfg):
-            print(f"{Fore.GREEN}✓ API密钥已保存{Style.RESET_ALL}")
+            print(f"  • API密钥已保存")
         else:
-            print(f"{Fore.RED}✗ 保存失败{Style.RESET_ALL}")
+            print(f"  • 保存失败")
 
 def set_model_interactive():
     """交互式设置模型"""
@@ -95,7 +95,7 @@ def set_model_interactive():
     print(f"  gpt-3.5-turbo, gpt-4, gpt-4-turbo")
     print(f"  claude-3-haiku, claude-3-sonnet, claude-3-opus")
     print(f"  gemini-pro, llama2-70b, 等...")
-    print(f"\n{Fore.YELLOW}提示: 直接输入模型名称，回车保持不变{Style.RESET_ALL}")
+    print(f"  • 提示: 直接输入模型名称，回车保持不变")
 
     new_model = input(f"\n{Fore.WHITE}请输入模型名称 > {Style.RESET_ALL}").strip()
 
@@ -103,9 +103,9 @@ def set_model_interactive():
         cfg = load_config()
         cfg["model"] = new_model
         if save_config(cfg):
-            print(f"{Fore.GREEN}✓ AI模型设置已保存: {new_model}{Style.RESET_ALL}")
+            print(f"  • AI模型设置已保存: {new_model}")
         else:
-            print(f"{Fore.RED}✗ 保存失败{Style.RESET_ALL}")
+            print(f"  • 保存失败")
 
 def show_settings():
     """显示设置菜单"""
@@ -149,7 +149,7 @@ def process_ai_conversation(user_input):
     from src.hacpp_client import hacpp_client
 
     if hacpp_mode.is_hacpp_active():
-        print(f"{Fore.MAGENTA}🚀 HACPP模式激活 - 双AI协作处理{Style.RESET_ALL}")
+        print(f"\n{theme_manager.format_tool_header('HACPP', '模式激活 - 双AI协作处理')}")
         hacpp_client.process_hacpp_request(user_input)
         return
 
@@ -169,7 +169,7 @@ def process_ai_conversation(user_input):
 
     # 检查是否在发送阶段被中断
     if is_task_interrupted():
-        print(f"\n{Fore.YELLOW}任务已被用户中断{Style.RESET_ALL}")
+        print(f"\n  • 任务已被用户中断")
         return
 
     # 检查是否启用了原始输出模式
@@ -186,12 +186,12 @@ def process_ai_conversation(user_input):
     while True:
         # 检查是否被中断
         if is_task_interrupted():
-            print(f"\n{Fore.YELLOW}任务处理已被用户中断{Style.RESET_ALL}")
+            print(f"\n  • 任务处理已被用户中断")
             break
 
         iteration_count += 1
         if iteration_count > max_iterations:
-            print(f"\n{Fore.RED}警告: AI处理超过最大迭代次数({max_iterations})，停止处理{Style.RESET_ALL}")
+            print(f"\n  • 警告: AI处理超过最大迭代次数({max_iterations})，停止处理")
             break
 
         result = ai_tool_processor.process_response(ai_response)
@@ -206,20 +206,20 @@ def process_ai_conversation(user_input):
 
             # 检查是否有重复操作（最近3次都是相同操作）
             if len(recent_operations) >= 3 and len(set(recent_operations[-3:])) == 1:
-                print(f"\n{Fore.RED}检测到重复操作，停止处理避免无限循环{Style.RESET_ALL}")
+                print(f"\n  • 检测到重复操作，停止处理避免无限循环")
                 break
 
         # 显示AI的意图（过滤XML）
         if result['display_text'].strip():
-            print(f"\n{Fore.GREEN}AI: {result['display_text']}{Style.RESET_ALL}")
+            print(f"\n{theme_manager.format_tool_header('AI', result['display_text'])}")
 
         # 如果有工具调用，显示结果
         if result['has_tool'] and result['tool_result']:
-            print(f"{Fore.YELLOW}执行结果: {result['tool_result']}{Style.RESET_ALL}")
+            print(f"  • 执行结果: {result['tool_result']}")
 
         # 🚨 简化停止条件检查 - 只有should_continue=False才能停止
         if not result['should_continue']:
-            print(f"\n{Fore.GREEN}任务处理完成{Style.RESET_ALL}")
+            print(f"\n  • 任务处理完成")
             break
 
         # 🚨 如果需要继续，继续对话（包括工具执行失败的情况）
@@ -229,7 +229,7 @@ def process_ai_conversation(user_input):
 
             # 检查继续处理时是否被中断
             if is_task_interrupted():
-                print(f"\n{Fore.YELLOW}任务处理已被用户中断{Style.RESET_ALL}")
+                print(f"\n  • 任务处理已被用户中断")
                 break
         else:
             # 没有工具调用的情况，也要检查是否应该继续
@@ -237,7 +237,7 @@ def process_ai_conversation(user_input):
                 # 发送一个继续的提示
                 ai_response = ai_client.send_message("请继续完成任务。", include_structure=False)
             else:
-                print(f"\n{Fore.GREEN}任务处理完成{Style.RESET_ALL}")
+                print(f"\n  • 任务处理完成")
                 break
 
     print()  # 空行分隔
@@ -255,9 +255,9 @@ def handle_special_commands(user_input):
             from src.debug_config import toggle_raw_output, is_raw_output_enabled
             toggle_raw_output()
             new_state = "启用" if is_raw_output_enabled() else "禁用"
-            print(f"{Fore.YELLOW}✓ 原始输出模式已{new_state}。{Style.RESET_ALL}")
+            print(f"  • 原始输出模式已{new_state}")
         else:
-            print(f"{Fore.YELLOW}未知调试命令。可用命令: /debug raw{Style.RESET_ALL}")
+            print(f"  • 未知调试命令。可用命令: /debug raw")
         return True
 
     # 压缩命令
@@ -341,7 +341,7 @@ def handle_special_commands(user_input):
 
     # 退出命令
     if user_input.lower() in ['/exit', '/quit', '/q']:
-        print(f"{Fore.CYAN}再见！感谢使用 ByteIQ{Style.RESET_ALL}")
+        print(f"  • 再见！感谢使用 ByteIQ")
         return "exit"
 
     return False
@@ -349,7 +349,8 @@ def handle_special_commands(user_input):
 def handle_analyze_command():
     """处理项目分析命令"""
     try:
-        print(f"{Fore.CYAN}🔍 开始分析项目...{Style.RESET_ALL}")
+        from src.theme import theme_manager
+        print(f"\n{theme_manager.format_tool_header('Analyze', '开始分析项目')}")
         
         # 使用延迟加载器获取项目分析器
         from src.lazy_loader import lazy_loader
@@ -364,14 +365,21 @@ def handle_analyze_command():
         # 分析项目
         analysis_result = analyzer.analyze_project()
         
-        # 生成BYTEIQ.md文件
-        output_path = analyzer.generate_byteiq_md()
-        
-        print(f"\n{Fore.GREEN}✅ 项目分析完成！{Style.RESET_ALL}")
-        print(f"{Fore.CYAN}📄 BYTEIQ.md 配置文件已生成: {output_path}{Style.RESET_ALL}")
+        if analysis_result:
+            # 获取AI客户端用于增强内容
+            from src.lazy_loader import lazy_loader
+            ai_client = lazy_loader.get_ai_client()
+            if not ai_client:
+                from src.ai_client import ai_client
+            
+            # 生成BYTEIQ.md文件，让AI参与优化
+            output_path = analyzer.generate_byteiq_md(ai_client=ai_client)
+            print(f"  • 项目分析完成，AI增强配置文件已生成")
+        else:
+            print(f"  • 项目分析失败")
         
         # 显示分析摘要
-        print(f"\n{Fore.YELLOW}📊 分析摘要:{Style.RESET_ALL}")
+        print(f"\n{theme_manager.format_tool_header('Analyze', '项目摘要')}")
         print(f"  项目类型: {analysis_result['project_type']}")
         print(f"  技术栈: {', '.join(analysis_result['tech_stack'])}")
         print(f"  文件总数: {analysis_result['file_structure']['total_files']}")
@@ -383,12 +391,12 @@ def handle_analyze_command():
         if analysis_result['code_features']['frameworks']:
             print(f"  使用框架: {', '.join(analysis_result['code_features']['frameworks'])}")
         
-        print(f"\n{Fore.GREEN}💡 提示: BYTEIQ.md 文件包含了项目的详细配置，AI助手将根据此配置提供更精准的帮助。{Style.RESET_ALL}")
+        print(f"  • BYTEIQ.md 文件包含了项目的详细配置，AI助手将根据此配置提供更精准的帮助")
         
     except Exception as e:
-        print(f"{Fore.RED}❌ 项目分析失败: {e}{Style.RESET_ALL}")
+        print(f"  • 项目分析失败: {e}")
         import traceback
-        print(f"{Fore.YELLOW}详细错误信息:{Style.RESET_ALL}")
+        print(f"  • 详细错误信息:")
         traceback.print_exc()
 
 def handle_chat_command(user_input):
@@ -404,9 +412,10 @@ def handle_chat_command(user_input):
         parts = user_input.split()
         if len(parts) == 1:
             # 显示帮助信息
-            print(f"{Fore.CYAN}聊天上下文管理命令:{Style.RESET_ALL}")
+            print(f"\n{theme_manager.format_tool_header('Chat', '上下文管理命令')}")
             print(f"  /chat save    - 保存当前上下文到软件目录")
             print(f"  /chat load    - 交互式加载已保存的上下文")
+            print(f"  /chat delete  - 交互式删除已保存的上下文")
             print(f"  /export       - 导出上下文到当前目录")
             return
         
@@ -416,12 +425,14 @@ def handle_chat_command(user_input):
             chat_manager.save_context_interactive(ai_client.context_manager)
         elif subcommand == 'load':
             chat_manager.load_context_interactive(ai_client.context_manager)
+        elif subcommand == 'delete':
+            chat_manager.delete_context_interactive()
         else:
-            print(f"{Fore.YELLOW}未知子命令: {subcommand}{Style.RESET_ALL}")
-            print(f"{Fore.CYAN}可用命令: save, load{Style.RESET_ALL}")
+            print(f"  • 未知子命令: {subcommand}")
+            print(f"  • 可用命令: save, load, delete")
             
     except Exception as e:
-        print(f"{Fore.RED}聊天命令处理失败: {e}{Style.RESET_ALL}")
+        print(f"  • 聊天命令处理失败: {e}")
 
 def handle_export_command():
     """处理导出上下文命令"""
@@ -435,7 +446,7 @@ def handle_export_command():
         chat_manager.export_context_to_current_dir(ai_client.context_manager)
         
     except Exception as e:
-        print(f"{Fore.RED}导出命令处理失败: {e}{Style.RESET_ALL}")
+        print(f"  • 导出命令处理失败: {e}")
 
 def handle_context_command(user_input):
     """处理上下文管理命令"""
@@ -446,7 +457,7 @@ def handle_context_command(user_input):
         if len(parts) == 1:
             # 显示上下文状态
             stats = ai_client.context_manager.get_context_stats()
-            print(f"\n{Fore.CYAN}📊 上下文状态{Style.RESET_ALL}")
+            print(f"\n{theme_manager.format_tool_header('Context', '状态')}")
             print("=" * 50)
             print(f"总Token数: {stats['total_tokens']:,} / {stats['max_tokens']:,}")
             print(f"利用率: {stats['utilization_percent']}%")
@@ -467,43 +478,43 @@ def handle_context_command(user_input):
         elif parts[1].lower() == 'save':
             filename = parts[2] if len(parts) > 2 else ".byteiq_context.json"
             ai_client.context_manager.save_context(filename)
-            print(f"{Fore.GREEN}✓ 上下文已保存到 {filename}{Style.RESET_ALL}")
+            print(f"  • 上下文已保存到 {filename}")
             
         elif parts[1].lower() == 'load':
             filename = parts[2] if len(parts) > 2 else ".byteiq_context.json"
             success = ai_client.context_manager.load_context(filename)
             if success:
-                print(f"{Fore.GREEN}✓ 已从 {filename} 加载上下文{Style.RESET_ALL}")
+                print(f"  • 已从 {filename} 加载上下文")
             else:
-                print(f"{Fore.YELLOW}⚠️ 无法加载 {filename}{Style.RESET_ALL}")
+                print(f"  • 无法加载 {filename}")
         
         elif parts[1].lower() == 'set':
             if len(parts) < 3:
-                print(f"{Fore.YELLOW}用法: /context set <token数量>{Style.RESET_ALL}")
+                print(f"  • 用法: /context set <token数量>")
                 return
             
             try:
                 max_tokens = int(parts[2])
                 ai_client.context_manager.set_max_tokens(max_tokens)
             except ValueError:
-                print(f"{Fore.RED}❌ 无效的token数量: {parts[2]}{Style.RESET_ALL}")
+                print(f"  • 无效的token数量: {parts[2]}")
             except Exception as e:
-                print(f"{Fore.RED}❌ 设置失败: {e}{Style.RESET_ALL}")
+                print(f"  • 设置失败: {e}")
                 
         else:
-            print(f"{Fore.CYAN}上下文管理命令:{Style.RESET_ALL}")
+            print(f"\n{theme_manager.format_tool_header('Context', '管理命令')}")
             print(f"  /context          - 显示上下文状态")
             print(f"  /context clear    - 清除所有上下文")
             print(f"  /context save [文件名] - 保存上下文到文件")
             print(f"  /context load [文件名] - 从文件加载上下文")
             print(f"  /context set <tokens>  - 设置上下文token限制")
-            print(f"\n{Fore.YELLOW}示例:{Style.RESET_ALL}")
+            print(f"\n  • 示例:")
             print(f"  /context set 12800    - 设置上下文限制为12800 tokens")
             print(f"  /context set 25600    - 设置上下文限制为25600 tokens")
             print(f"  /context set 180000   - 设置上下文限制为180000 tokens")
             
     except Exception as e:
-        print(f"{Fore.RED}上下文命令处理失败: {e}{Style.RESET_ALL}")
+        print(f"  • 上下文命令处理失败: {e}")
 
 def handle_agent_command(user_input):
     """处理代理增强命令"""
@@ -514,7 +525,7 @@ def handle_agent_command(user_input):
         if len(parts) == 1:
             # 显示代理状态
             status = ai_client.agent_enhancer.get_execution_status()
-            print(f"\n{Fore.CYAN}🤖 代理执行状态{Style.RESET_ALL}")
+            print(f"\n{theme_manager.format_tool_header('Agent', '执行状态')}")
             print("=" * 50)
             print(f"总任务数: {status['total_tasks']}")
             print(f"已完成: {status['completed_tasks']}")
@@ -531,20 +542,20 @@ def handle_agent_command(user_input):
         elif parts[1].lower() == 'next':
             next_task = ai_client.agent_enhancer.get_next_task()
             if next_task:
-                print(f"{Fore.GREEN}下一个任务: {next_task.description}{Style.RESET_ALL}")
+                print(f"  • 下一个任务: {next_task.description}")
                 print(f"优先级: {next_task.priority}")
                 print(f"状态: {next_task.status}")
             else:
-                print(f"{Fore.YELLOW}没有待执行的任务{Style.RESET_ALL}")
+                print(f"  • 没有待执行的任务")
                 
         else:
-            print(f"{Fore.CYAN}代理增强命令:{Style.RESET_ALL}")
+            print(f"\n{theme_manager.format_tool_header('Agent', '增强命令')}")
             print("  /agent              - 显示代理执行状态")
             print("  /agent clear        - 清除所有执行计划")
             print("  /agent next         - 显示下一个任务")
             
     except Exception as e:
-        print(f"{Fore.RED}代理命令处理失败: {e}{Style.RESET_ALL}")
+        print(f"  • 代理命令处理失败: {e}")
 
 def handle_clear_command():
     """处理清除上下文命令"""
@@ -556,10 +567,10 @@ def handle_clear_command():
         
         # 直接清除上下文
         ai_client.context_manager.clear_context()
-        print(f"{Fore.GREEN}✓ 上下文已清除{Style.RESET_ALL}")
+        print(f"  • 上下文已清除")
             
     except Exception as e:
-        print(f"{Fore.RED}清除命令处理失败: {e}{Style.RESET_ALL}")
+        print(f"  • 清除命令处理失败: {e}")
 
 def handle_mcp_command():
     """处理MCP命令"""
@@ -567,13 +578,13 @@ def handle_mcp_command():
         from src.mcp_config import mcp_config
 
 
-        print(f"\n{Fore.CYAN}🔧 MCP (Model Context Protocol) 管理{Style.RESET_ALL}")
+        print(f"\n{theme_manager.format_tool_header('MCP', 'Model Context Protocol 管理')}")
         print("=" * 60)
 
         # 显示当前状态
         mcp_config.show_config_summary()
 
-        print(f"\n{Fore.CYAN}MCP管理选项:{Style.RESET_ALL}")
+        print(f"\n  • MCP管理选项:")
         print("  1 - 启用/禁用MCP")
         print("  2 - 配置服务器")
         print("  3 - 启动服务器")
@@ -594,10 +605,10 @@ def handle_mcp_command():
                 enable_choice = input(f"是否启用MCP? (y/n): ").strip().lower()
                 if enable_choice in ['y', 'yes']:
                     mcp_config.enable_mcp(True)
-                    print(f"{Fore.GREEN}✓ MCP已启用{Style.RESET_ALL}")
+                    print(f"  • MCP已启用")
                 elif enable_choice in ['n', 'no']:
                     mcp_config.enable_mcp(False)
-                    print(f"{Fore.YELLOW}MCP已禁用{Style.RESET_ALL}")
+                    print(f"  • MCP已禁用")
 
             elif choice == '2':
                 _configure_mcp_servers()
@@ -624,12 +635,12 @@ def handle_mcp_command():
                 break
 
             else:
-                print(f"{Fore.YELLOW}无效选择{Style.RESET_ALL}")
+                print(f"  • 无效选择")
 
     except ImportError as e:
-        print(f"{Fore.RED}MCP模块导入失败: {e}{Style.RESET_ALL}")
+        print(f"  • MCP模块导入失败: {e}")
     except Exception as e:
-        print(f"{Fore.RED}MCP命令处理失败: {e}{Style.RESET_ALL}")
+        print(f"  • MCP命令处理失败: {e}")
 
 def auto_start_mcp_servers():
     """自动启动MCP服务器（延迟加载版本）"""
@@ -649,21 +660,21 @@ def auto_start_mcp_servers():
         servers = mcp_config.get_configured_servers()
         
         if not servers:
-            print(f"{Fore.YELLOW}没有配置MCP服务器{Style.RESET_ALL}")
+            print(f"  • 没有配置MCP服务器")
             return
         
-        print(f"{Fore.CYAN}正在启动MCP服务器...{Style.RESET_ALL}")
+        print(f"\n{theme_manager.format_tool_header('MCP', '启动服务器')}")
         
         # 启动所有配置的服务器
         for server_name in servers:
             try:
                 mcp_client.start_server(server_name)
-                print(f"{Fore.GREEN}✓ {server_name} 服务器已启动{Style.RESET_ALL}")
+                print(f"  • {server_name} 服务器已启动")
             except Exception as e:
-                print(f"{Fore.RED}✗ {server_name} 启动失败: {e}{Style.RESET_ALL}")
+                print(f"  • {server_name} 启动失败: {e}")
                 
     except Exception as e:
-        print(f"{Fore.RED}MCP服务器启动失败: {e}{Style.RESET_ALL}")
+        print(f"  • MCP服务器启动失败: {e}")
 
 def auto_stop_mcp_servers():
     """自动停止MCP服务器（延迟加载版本）"""
@@ -683,21 +694,21 @@ def auto_stop_mcp_servers():
         servers = mcp_config.get_configured_servers()
         
         if not servers:
-            print(f"{Fore.YELLOW}没有配置MCP服务器{Style.RESET_ALL}")
+            print(f"  • 没有配置MCP服务器")
             return
         
-        print(f"{Fore.CYAN}正在停止MCP服务器...{Style.RESET_ALL}")
+        print(f"\n{theme_manager.format_tool_header('MCP', '停止服务器')}")
         
         # 停止所有配置的服务器
         for server_name in servers:
             try:
                 mcp_client.stop_server(server_name)
-                print(f"{Fore.GREEN}✓ {server_name} 服务器已停止{Style.RESET_ALL}")
+                print(f"  • {server_name} 服务器已停止")
             except Exception as e:
-                print(f"{Fore.RED}✗ {server_name} 停止失败: {e}{Style.RESET_ALL}")
+                print(f"  • {server_name} 停止失败: {e}")
                 
     except Exception as e:
-        print(f"{Fore.RED}MCP服务器停止失败: {e}{Style.RESET_ALL}")
+        print(f"  • MCP服务器停止失败: {e}")
 
 def _configure_mcp_servers():
     """配置MCP服务器"""
@@ -728,7 +739,7 @@ def _configure_mcp_servers():
 
             if enable_choice in ['y', 'yes']:
                 mcp_config.enable_server(server_name, True)
-                print(f"{Fore.GREEN}✓ {server_name} 已启用{Style.RESET_ALL}")
+                print(f"  • {server_name} 已启用")
 
                 # 配置环境变量
                 env_vars = server_config.get("env", {})
@@ -742,16 +753,16 @@ def _configure_mcp_servers():
                         new_value = input(f"请输入 {env_key} 的值 (留空保持不变): ").strip()
                         if new_value:
                             mcp_config.set_server_env(server_name, env_key, new_value)
-                            print(f"✓ {env_key} 已更新")
+                            print(f"  • {env_key} 已更新")
 
             elif enable_choice in ['n', 'no']:
                 mcp_config.enable_server(server_name, False)
-                print(f"{Fore.YELLOW}{server_name} 已禁用{Style.RESET_ALL}")
+                print(f"  • {server_name} 已禁用")
         else:
-            print(f"{Fore.YELLOW}无效的服务器编号{Style.RESET_ALL}")
+            print(f"  • 无效的服务器编号")
 
     except ValueError:
-        print(f"{Fore.YELLOW}请输入有效的数字{Style.RESET_ALL}")
+        print(f"  • 请输入有效的数字")
 
 def _start_mcp_servers():
     """启动MCP服务器"""
@@ -760,15 +771,15 @@ def _start_mcp_servers():
     import asyncio
 
     if not mcp_config.is_enabled():
-        print(f"{Fore.YELLOW}MCP功能未启用{Style.RESET_ALL}")
+        print(f"  • MCP功能未启用")
         return
 
     enabled_servers = mcp_config.get_enabled_servers()
     if not enabled_servers:
-        print(f"{Fore.YELLOW}没有启用的服务器{Style.RESET_ALL}")
+        print(f"  • 没有启用的服务器")
         return
 
-    print(f"\n{Fore.CYAN}启动MCP服务器{Style.RESET_ALL}")
+    print(f"\n{theme_manager.format_tool_header('MCP', '启动服务器')}")
 
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
@@ -793,9 +804,9 @@ def _start_mcp_servers():
                 success = loop.run_until_complete(mcp_client.start_server(server_name))
 
                 if success:
-                    print(f"{Fore.GREEN}✓ {server_name} 启动成功{Style.RESET_ALL}")
+                    print(f"  • {server_name} 启动成功")
                 else:
-                    print(f"{Fore.RED}❌ {server_name} 启动失败{Style.RESET_ALL}")
+                    print(f"  • {server_name} 启动失败")
     finally:
         loop.close()
 
@@ -811,7 +822,7 @@ def _stop_mcp_servers():
 
     try:
         loop.run_until_complete(mcp_client.stop_all_servers())
-        print(f"{Fore.GREEN}✓ 所有MCP服务器已停止{Style.RESET_ALL}")
+        print(f"  • 所有MCP服务器已停止")
     finally:
         loop.close()
 
@@ -825,7 +836,7 @@ def _show_mcp_server_status():
     status = mcp_client.get_server_status()
 
     if not status:
-        print(f"{Fore.YELLOW}没有配置的服务器{Style.RESET_ALL}")
+        print(f"  • 没有配置的服务器")
         return
 
     for server_name, server_status in status.items():
@@ -850,7 +861,7 @@ def _list_mcp_tools():
     tools = mcp_client.get_available_tools()
 
     if not tools:
-        print(f"{Fore.YELLOW}没有可用的工具{Style.RESET_ALL}")
+        print(f"  • 没有可用的工具")
         return
 
     for tool in tools:
@@ -869,7 +880,7 @@ def _list_mcp_resources():
     resources = mcp_client.get_available_resources()
 
     if not resources:
-        print(f"{Fore.YELLOW}没有可用的资源{Style.RESET_ALL}")
+        print(f"  • 没有可用的资源")
         return
 
     for resource in resources:
@@ -895,7 +906,7 @@ def print_status():
 
     # 当前模式行
     mode_text = f"Mode: {mode_manager.get_current_mode()} (Alt+L to switch)"
-    mode_color = Fore.GREEN if mode_manager.get_current_mode() == "sprint" else Fore.YELLOW
+    mode_color = theme_manager.get_tool_color('success') if mode_manager.get_current_mode() == "sprint" else theme_manager.get_tool_color('warning')
 
     # 权限信息
     permissions = mode_manager.get_mode_permissions()
@@ -926,7 +937,7 @@ def auto_start_mcp_servers():
         from src.mcp_client import mcp_client
         import asyncio
 
-        print(f"{Fore.CYAN}🔧 启动MCP服务器...{Style.RESET_ALL}")
+        print(f"\n{theme_manager.format_tool_header('MCP', '启动服务器')}")
 
         # 创建异步事件循环
         loop = asyncio.new_event_loop()
@@ -954,24 +965,22 @@ def auto_start_mcp_servers():
 
             if success_count > 0:
                 tools_count = len(mcp_client.get_available_tools())
-                print(f"{Fore.GREEN}✅ MCP服务器启动完成，可用工具: {tools_count} 个{Style.RESET_ALL}")
+                print(f"  • MCP服务器启动完成，可用工具: {tools_count} 个")
 
         finally:
             loop.close()
 
     except Exception as e:
-        print(f"{Fore.YELLOW}⚠️ MCP服务器启动失败: {e}{Style.RESET_ALL}")
+        print(f"  • MCP服务器启动失败: {e}")
 
 def initialize_theme():
     """初始化主题设置"""
     try:
         from src.theme import theme_manager
-        from src.config import load_config
-
-        # 加载配置
-        cfg = load_config()
+        from src.config import load_config, save_config
 
         # 获取主题设置
+        cfg = load_config()
         theme = cfg.get("theme", "default")
 
         # 设置主题
@@ -1025,7 +1034,7 @@ def main():
                 except KeyboardInterrupt:
                     # 处理Ctrl+C
                     try:
-                        print(f"\n{Fore.YELLOW}使用 /exit 退出程序{Style.RESET_ALL}")
+                        print(f"\n  • 使用 /exit 退出程序")
                     except Exception:
                         import sys
                         sys.__stdout__.write("\n使用 /exit 退出程序\n")
@@ -1067,7 +1076,7 @@ def main():
 
     except Exception as e:
         try:
-            print(f"{Fore.RED}程序发生错误: {e}{Style.RESET_ALL}")
+            print(f"  • 程序发生错误: {e}")
         except Exception:
             # 如果colorama出错，使用基本输出
             import sys

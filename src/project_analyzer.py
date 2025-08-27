@@ -282,7 +282,7 @@ class ProjectAnalyzer:
             "size_mb": round(total_size / (1024 * 1024), 2)
         }
     
-    def generate_byteiq_md(self, output_path: Optional[str] = None) -> str:
+    def generate_byteiq_md(self, output_path: Optional[str] = None, ai_client=None) -> str:
         """生成BYTEIQ.md配置文件"""
         if not self.analysis_result:
             self.analyze_project()
@@ -290,12 +290,20 @@ class ProjectAnalyzer:
         if output_path is None:
             output_path = self.project_path / "BYTEIQ.md"
         
-        content = self._generate_md_content()
+        # 生成基础内容
+        base_content = self._generate_md_content()
+        
+        # 如果提供了AI客户端，让AI参与优化内容
+        if ai_client:
+            enhanced_content = self._enhance_content_with_ai(base_content, ai_client)
+            content = enhanced_content if enhanced_content else base_content
+        else:
+            content = base_content
         
         with open(output_path, 'w', encoding='utf-8') as f:
             f.write(content)
         
-        print(f"{Fore.GREEN}✓ BYTEIQ.md 已生成: {output_path}{Style.RESET_ALL}")
+        print(f"  • BYTEIQ.md 已生成: {output_path}")
         return str(output_path)
     
     def _generate_md_content(self) -> str:
@@ -371,6 +379,37 @@ class ProjectAnalyzer:
             formatted += f"└── ... (还有 {len(structure['directories']) - 10} 个目录)\n"
         
         return formatted
+    
+    def _enhance_content_with_ai(self, base_content: str, ai_client) -> str:
+        """使用AI增强BYTEIQ.md内容"""
+        try:
+            # 构建AI提示词
+            prompt = f"""请帮我优化这个BYTEIQ.md项目配置文件。这是一个AI编程助手的项目配置文件，用于指导AI更好地理解和协助开发这个项目。
+
+当前的基础配置内容：
+{base_content}
+
+请你：
+1. 保持现有的结构和格式
+2. 优化项目描述，使其更准确和专业
+3. 完善AI助手规则，添加更具体的指导原则
+4. 根据项目特点添加开发建议和最佳实践
+5. 确保内容对AI助手具有实际指导意义
+6. 保持中文输出
+
+请直接返回优化后的完整BYTEIQ.md内容，不要添加额外的解释。"""
+
+            # 调用AI生成增强内容
+            response = ai_client.get_response(prompt)
+            
+            if response and len(response.strip()) > len(base_content) * 0.8:
+                return response.strip()
+            else:
+                return None
+                
+        except Exception as e:
+            print(f"  • AI增强失败，使用基础版本: {e}")
+            return None
 
 # 全局项目分析器实例
 project_analyzer = ProjectAnalyzer()

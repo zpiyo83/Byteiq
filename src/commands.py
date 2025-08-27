@@ -34,7 +34,7 @@ def get_command_descriptions():
         "/hacpp": "HACPP双AI协作模式",
         "/fix": "AI辅助调试",
         "/analyze": "分析项目并生成BYTEIQ.md配置文件",
-        "/chat": "聊天上下文管理 (save/load)",
+        "/chat": "聊天上下文管理 (save/load/delete)",
         "/export": "导出上下文到当前目录"
     }
 
@@ -74,10 +74,13 @@ def show_help():
   {Fore.WHITE}/mode{Style.RESET_ALL}     - 切换工作模式
   {Fore.WHITE}/clear-history{Style.RESET_ALL} - 清除AI对话历史
   {Fore.WHITE}/compact{Style.RESET_ALL}      - 压缩上下文
-  {Fore.WHITE}/analyze{Style.RESET_ALL}      - 分析项目并生成BYTEIQ.md配置文件
+  {Fore.WHITE}/analyze{Style.RESET_ALL}      - AI增强项目分析并生成BYTEIQ.md配置文件
+  {Fore.WHITE}/context{Style.RESET_ALL}      - 上下文管理 (set/status/clear/save/load)
   {Fore.WHITE}/chat save{Style.RESET_ALL}    - 保存上下文到软件目录
   {Fore.WHITE}/chat load{Style.RESET_ALL}    - 交互式加载上下文
+  {Fore.WHITE}/chat delete{Style.RESET_ALL}  - 交互式删除上下文
   {Fore.WHITE}/export{Style.RESET_ALL}       - 导出上下文到当前目录
+  {Fore.WHITE}/fix{Style.RESET_ALL}          - AI辅助调试 (bug/status/end)
 
 {Fore.MAGENTA}HACPP模式 (双AI协作):{Style.RESET_ALL}
   {Fore.WHITE}/HACPP{Style.RESET_ALL}        - 激活HACPP模式（需要测试码）
@@ -88,6 +91,9 @@ def show_help():
 {Fore.CYAN}TODO任务管理:{Style.RESET_ALL}
   {Fore.WHITE}/todos{Style.RESET_ALL}    - 显示TODO任务列表
   {Fore.WHITE}/todo{Style.RESET_ALL}     - TODO任务管理菜单
+
+{Fore.CYAN}MCP服务器管理:{Style.RESET_ALL}
+  {Fore.WHITE}/mcp{Style.RESET_ALL}      - MCP服务器管理 (start/stop/status/config)
 
 {Fore.CYAN}AI工具能力:{Style.RESET_ALL}
   {Fore.YELLOW}读取文件{Style.RESET_ALL}     - AI可以读取项目文件
