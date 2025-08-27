@@ -145,12 +145,21 @@ class AIClient:
         self.is_loading = False
         self.loading_thread = None
         self.network_manager = AsyncNetworkManager()
+        
+        # 集成智能上下文管理器
+        from .context_manager import context_manager
+        self.context_manager = context_manager
+        
+        # 集成代理式编程增强器
+        from .agent_enhancer import agent_enhancer
+        self.agent_enhancer = agent_enhancer
 
     def get_system_prompt(self):
         """获取系统提示词"""
         # 检查当前模式和提示词强度
         from .modes import mode_manager
         from .config import load_config
+        from .byteiq_config import byteiq_config_manager
 
         current_mode = mode_manager.get_current_mode()
         config = load_config()
@@ -159,7 +168,12 @@ class AIClient:
         # 导入提示词模板系统
         from .prompt_templates import get_prompt_template
 
-        return get_prompt_template(current_mode, prompt_strength)
+        base_prompt = get_prompt_template(current_mode, prompt_strength)
+        
+        # 使用BYTEIQ.md配置增强提示词
+        enhanced_prompt = byteiq_config_manager.get_enhanced_system_prompt(base_prompt)
+        
+        return enhanced_prompt
 
 
 
@@ -405,22 +419,39 @@ class AIClient:
     def send_message(self, user_input, include_structure=True):
         """发送消息给AI（保持向后兼容）"""
         try:
-            # 构建消息
-            messages = [{"role": "system", "content": self.get_system_prompt()}]
-
-            # 添加历史对话
-            messages.extend(self.conversation_history)
-
+            # 分析用户请求并创建执行计划
+            analysis = self.agent_enhancer.analyze_user_request(user_input)
+            
+            # 添加用户消息到上下文管理器
+            self.context_manager.add_message("user", user_input, {"analysis": analysis})
+            
+            # 如果需要规划，创建执行计划
+            if analysis["requires_planning"]:
+                plan_result = self.agent_enhancer.create_execution_plan(user_input, analysis)
+                self.context_manager.add_project_context("current_plan", plan_result, "high")
+            
             # 构建用户消息
             user_message = user_input
             if include_structure:
                 structure = self.get_project_structure()
                 if structure.strip():
                     user_message += f"\n\n当前项目结构：\n```\n{structure}```"
+                    # 添加项目结构到上下文
+                    self.context_manager.add_project_context("project_structure", structure, "high")
                 else:
                     user_message += "\n\n当前项目结构：空"
 
-            messages.append({"role": "user", "content": user_message})
+            # 获取系统提示词并根据思考模式增强
+            base_prompt = self.get_system_prompt()
+            thinking_mode = analysis["thinking_mode"]
+            enhanced_prompt = self.agent_enhancer.enhance_prompt_with_thinking(base_prompt, thinking_mode)
+
+            # 使用智能上下文管理器获取消息
+            messages = [{"role": "system", "content": enhanced_prompt}]
+            
+            # 获取增强的消息历史
+            enhanced_messages = self.context_manager.get_enhanced_messages()
+            messages.extend(enhanced_messages)
 
             # 准备请求数据
             data = {
@@ -461,9 +492,15 @@ class AIClient:
                 result = response.json()
                 ai_response = result['choices'][0]['message']['content']
 
-                # 保存对话历史
+                # 添加AI响应到上下文管理器
+                self.context_manager.add_message("assistant", ai_response)
+
+                # 保持向后兼容的历史记录（但现在主要由context_manager管理）
                 self.conversation_history.append({"role": "user", "content": user_input})
                 self.conversation_history.append({"role": "assistant", "content": ai_response})
+                
+                # 自动保存上下文
+                self.context_manager.save_context()
 
                 # 限制历史长度，但保留更多上下文（保持20条消息）
                 if len(self.conversation_history) > 20:

@@ -114,23 +114,15 @@ def show_settings():
     config_show_settings()
 
 # ========== AI功能 ==========
-# 使用统一的AI客户端（包含新功能：思考动画、ESC中断）
-from src.ai_client import ai_client
-
-# 使用统一的工具处理器（包含权限控制）
-from src.ai_tools import ai_tool_processor
-from src.input_handler import get_input_with_claude_style
-from src.keyboard_handler import (
-    stop_task_monitoring,
-    is_task_interrupted, reset_interrupt_flag
-)
+# AI模块延迟导入，提升启动速度
+# 移除全局AI客户端导入，改为延迟加载
 
 def process_ai_conversation(user_input):
     """处理AI对话"""
     # 检查是否配置了API密钥
     config = load_config()
     if not config.get('api_key'):
-        print(f"{Fore.RED}错误：请先设置API密钥。使用 /s 命令进入设置。{Style.RESET_ALL}")
+        print("错误：请先设置API密钥。使用 /s 命令进入设置。")
         return
     
     # 自动创建TODO任务
@@ -138,10 +130,19 @@ def process_ai_conversation(user_input):
         from src.auto_todo import auto_todo_manager
         task_id = auto_todo_manager.create_todo_from_request(user_input)
         if task_id:
-            print(f"{Fore.CYAN}📝 已自动创建任务: {auto_todo_manager.active_tasks[task_id]['title']}{Style.RESET_ALL}")
-    except Exception as e:
-        # 静默处理，不中断主流程
+            print(f"📝 已自动创建任务: {auto_todo_manager.active_tasks[task_id]['title']}")
+    except Exception:
         pass
+    
+    # 使用延迟加载器获取AI客户端
+    from src.lazy_loader import lazy_loader
+    ai_client = lazy_loader.get_ai_client()
+    if ai_client:
+        ai_response = ai_client.send_message(user_input)
+    else:
+        # 回退到直接导入
+        from src.ai_client import ai_client
+        ai_response = ai_client.send_message(user_input)
 
     # 检查是否处于HACPP模式
     from src.modes import hacpp_mode
@@ -300,12 +301,152 @@ def handle_special_commands(user_input):
         handle_fix_command(command_parts)
         return True
 
+    # 上下文管理命令
+    if user_input.lower().startswith('/context') or user_input.lower().startswith('/ctx'):
+        handle_context_command(user_input)
+        return True
+
+    # 代理增强命令
+    if user_input.lower().startswith('/agent'):
+        handle_agent_command(user_input)
+        return True
+
+    # 清除命令（增强版）
+    if user_input.lower() in ['/clear', '/c']:
+        handle_clear_command()
+        return True
+
     # 退出命令
     if user_input.lower() in ['/exit', '/quit', '/q']:
         print(f"{Fore.CYAN}再见！感谢使用 ByteIQ{Style.RESET_ALL}")
         return "exit"
 
     return False
+
+def handle_context_command(user_input):
+    """处理上下文管理命令"""
+    try:
+        from src.ai_client import ai_client
+        
+        parts = user_input.split()
+        if len(parts) == 1:
+            # 显示上下文状态
+            stats = ai_client.context_manager.get_context_stats()
+            print(f"\n{Fore.CYAN}📊 上下文状态{Style.RESET_ALL}")
+            print("=" * 50)
+            print(f"总Token数: {stats['total_tokens']:,} / {stats['max_tokens']:,}")
+            print(f"利用率: {stats['utilization_percent']}%")
+            print(f"对话消息: {stats['conversation_messages']}")
+            print(f"项目上下文: {stats['project_contexts']}")
+            print(f"代码上下文: {stats['code_contexts']}")
+            print(f"会话摘要: {'是' if stats['has_summary'] else '否'}")
+            
+            # 显示进度条
+            bar_length = 30
+            filled_length = int(bar_length * stats['utilization_percent'] / 100)
+            bar = '█' * filled_length + '░' * (bar_length - filled_length)
+            print(f"进度: [{bar}] {stats['utilization_percent']}%")
+            
+        elif parts[1].lower() == 'clear':
+            ai_client.context_manager.clear_context()
+            
+        elif parts[1].lower() == 'save':
+            filename = parts[2] if len(parts) > 2 else ".byteiq_context.json"
+            ai_client.context_manager.save_context(filename)
+            print(f"{Fore.GREEN}✓ 上下文已保存到 {filename}{Style.RESET_ALL}")
+            
+        elif parts[1].lower() == 'load':
+            filename = parts[2] if len(parts) > 2 else ".byteiq_context.json"
+            success = ai_client.context_manager.load_context(filename)
+            if success:
+                print(f"{Fore.GREEN}✓ 已从 {filename} 加载上下文{Style.RESET_ALL}")
+            else:
+                print(f"{Fore.YELLOW}⚠️ 无法加载 {filename}{Style.RESET_ALL}")
+                
+        else:
+            print(f"{Fore.CYAN}上下文管理命令:{Style.RESET_ALL}")
+            print("  /context 或 /ctx        - 显示上下文状态")
+            print("  /context clear          - 清除所有上下文")
+            print("  /context save [文件名]  - 保存上下文到文件")
+            print("  /context load [文件名]  - 从文件加载上下文")
+            
+    except Exception as e:
+        print(f"{Fore.RED}上下文命令处理失败: {e}{Style.RESET_ALL}")
+
+def handle_agent_command(user_input):
+    """处理代理增强命令"""
+    try:
+        from src.ai_client import ai_client
+        
+        parts = user_input.split()
+        if len(parts) == 1:
+            # 显示代理状态
+            status = ai_client.agent_enhancer.get_execution_status()
+            print(f"\n{Fore.CYAN}🤖 代理执行状态{Style.RESET_ALL}")
+            print("=" * 50)
+            print(f"总任务数: {status['total_tasks']}")
+            print(f"已完成: {status['completed_tasks']}")
+            print(f"待执行: {status['pending_tasks']}")
+            print(f"失败任务: {status['failed_tasks']}")
+            print(f"完成率: {status['progress_percent']}%")
+            
+            if status['current_task']:
+                print(f"当前任务: {status['current_task']}")
+                
+        elif parts[1].lower() == 'clear':
+            ai_client.agent_enhancer.clear_plans()
+            
+        elif parts[1].lower() == 'next':
+            next_task = ai_client.agent_enhancer.get_next_task()
+            if next_task:
+                print(f"{Fore.GREEN}下一个任务: {next_task.description}{Style.RESET_ALL}")
+                print(f"优先级: {next_task.priority}")
+                print(f"状态: {next_task.status}")
+            else:
+                print(f"{Fore.YELLOW}没有待执行的任务{Style.RESET_ALL}")
+                
+        else:
+            print(f"{Fore.CYAN}代理增强命令:{Style.RESET_ALL}")
+            print("  /agent              - 显示代理执行状态")
+            print("  /agent clear        - 清除所有执行计划")
+            print("  /agent next         - 显示下一个任务")
+            
+    except Exception as e:
+        print(f"{Fore.RED}代理命令处理失败: {e}{Style.RESET_ALL}")
+
+def handle_clear_command():
+    """处理增强版清除命令"""
+    try:
+        from src.ai_client import ai_client
+        
+        print(f"{Fore.YELLOW}🧹 清除选项:{Style.RESET_ALL}")
+        print("  1 - 仅清除对话历史")
+        print("  2 - 清除上下文管理器")
+        print("  3 - 清除代理执行计划")
+        print("  4 - 全部清除")
+        print("  q - 取消")
+        
+        choice = input(f"\n{Fore.WHITE}请选择 > {Style.RESET_ALL}").strip().lower()
+        
+        if choice == '1':
+            ai_client.conversation_history = []
+            print(f"{Fore.GREEN}✓ 对话历史已清除{Style.RESET_ALL}")
+        elif choice == '2':
+            ai_client.context_manager.clear_context()
+        elif choice == '3':
+            ai_client.agent_enhancer.clear_plans()
+        elif choice == '4':
+            ai_client.conversation_history = []
+            ai_client.context_manager.clear_context()
+            ai_client.agent_enhancer.clear_plans()
+            print(f"{Fore.GREEN}✓ 所有数据已清除{Style.RESET_ALL}")
+        elif choice == 'q':
+            print(f"{Fore.YELLOW}已取消{Style.RESET_ALL}")
+        else:
+            print(f"{Fore.YELLOW}无效选择{Style.RESET_ALL}")
+            
+    except Exception as e:
+        print(f"{Fore.RED}清除命令处理失败: {e}{Style.RESET_ALL}")
 
 def handle_mcp_command():
     """处理MCP命令"""
@@ -349,10 +490,10 @@ def handle_mcp_command():
                 _configure_mcp_servers()
 
             elif choice == '3':
-                _start_mcp_servers()
+                auto_start_mcp_servers()
 
             elif choice == '4':
-                _stop_mcp_servers()
+                auto_stop_mcp_servers()
 
             elif choice == '5':
                 _show_mcp_server_status()
@@ -376,6 +517,74 @@ def handle_mcp_command():
         print(f"{Fore.RED}MCP模块导入失败: {e}{Style.RESET_ALL}")
     except Exception as e:
         print(f"{Fore.RED}MCP命令处理失败: {e}{Style.RESET_ALL}")
+
+def auto_start_mcp_servers():
+    """自动启动MCP服务器（延迟加载版本）"""
+    try:
+        from src.lazy_loader import lazy_loader
+        
+        # 使用延迟加载器获取MCP组件
+        mcp_config = lazy_loader.get_mcp_config()
+        mcp_client = lazy_loader.get_mcp_client()
+        
+        if not mcp_config or not mcp_client:
+            # 回退到直接导入
+            from src.mcp_config import mcp_config
+            from src.mcp_client import mcp_client
+        
+        # 获取配置的服务器列表
+        servers = mcp_config.get_configured_servers()
+        
+        if not servers:
+            print(f"{Fore.YELLOW}没有配置MCP服务器{Style.RESET_ALL}")
+            return
+        
+        print(f"{Fore.CYAN}正在启动MCP服务器...{Style.RESET_ALL}")
+        
+        # 启动所有配置的服务器
+        for server_name in servers:
+            try:
+                mcp_client.start_server(server_name)
+                print(f"{Fore.GREEN}✓ {server_name} 服务器已启动{Style.RESET_ALL}")
+            except Exception as e:
+                print(f"{Fore.RED}✗ {server_name} 启动失败: {e}{Style.RESET_ALL}")
+                
+    except Exception as e:
+        print(f"{Fore.RED}MCP服务器启动失败: {e}{Style.RESET_ALL}")
+
+def auto_stop_mcp_servers():
+    """自动停止MCP服务器（延迟加载版本）"""
+    try:
+        from src.lazy_loader import lazy_loader
+        
+        # 使用延迟加载器获取MCP组件
+        mcp_config = lazy_loader.get_mcp_config()
+        mcp_client = lazy_loader.get_mcp_client()
+        
+        if not mcp_config or not mcp_client:
+            # 回退到直接导入
+            from src.mcp_config import mcp_config
+            from src.mcp_client import mcp_client
+        
+        # 获取配置的服务器列表
+        servers = mcp_config.get_configured_servers()
+        
+        if not servers:
+            print(f"{Fore.YELLOW}没有配置MCP服务器{Style.RESET_ALL}")
+            return
+        
+        print(f"{Fore.CYAN}正在停止MCP服务器...{Style.RESET_ALL}")
+        
+        # 停止所有配置的服务器
+        for server_name in servers:
+            try:
+                mcp_client.stop_server(server_name)
+                print(f"{Fore.GREEN}✓ {server_name} 服务器已停止{Style.RESET_ALL}")
+            except Exception as e:
+                print(f"{Fore.RED}✗ {server_name} 停止失败: {e}{Style.RESET_ALL}")
+                
+    except Exception as e:
+        print(f"{Fore.RED}MCP服务器停止失败: {e}{Style.RESET_ALL}")
 
 def _configure_mcp_servers():
     """配置MCP服务器"""
@@ -586,13 +795,12 @@ def print_status():
     print(f"{mode_color}{mode_text}{perm_text}{Style.RESET_ALL}")
 
 def auto_start_mcp_servers():
-    """自动启动MCP服务器"""
+    """自动启动MCP服务器（延迟执行，提升启动速度）"""
     try:
+        # 延迟导入，避免启动时加载
         from src.mcp_config import mcp_config
-        from src.mcp_client import mcp_client
-        import asyncio
-
-        # 检查MCP是否启用
+        
+        # 快速检查是否启用，避免不必要的导入
         if not mcp_config.is_enabled():
             return
 
@@ -600,6 +808,10 @@ def auto_start_mcp_servers():
         enabled_servers = mcp_config.get_enabled_servers()
         if not enabled_servers:
             return
+
+        # 只有在确实需要时才导入重量级模块
+        from src.mcp_client import mcp_client
+        import asyncio
 
         print(f"{Fore.CYAN}🔧 启动MCP服务器...{Style.RESET_ALL}")
 
@@ -668,8 +880,8 @@ def main():
         print_welcome_screen()
         print()
 
-        # 自动启动MCP服务器
-        auto_start_mcp_servers()
+        # 延迟启动MCP服务器，避免阻塞启动
+        # auto_start_mcp_servers()  # 移至首次使用时启动
 
         # 主循环
         while True:
@@ -679,7 +891,15 @@ def main():
 
                 # 获取用户输入（安全版本）
                 try:
-                    user_input = get_input_with_claude_style()
+                    # 使用延迟加载器获取输入处理器
+                    from src.lazy_loader import lazy_loader
+                    get_input_func = lazy_loader.get_input_handler()
+                    if get_input_func:
+                        user_input = get_input_func()
+                    else:
+                        # 回退到直接导入
+                        from src.input_handler import get_input_with_claude_style
+                        user_input = get_input_with_claude_style()
                 except EOFError:
                     # 处理EOF错误（比如Ctrl+Z或管道输入结束）
                     try:
@@ -743,7 +963,10 @@ def main():
     finally:
         # 清理资源
         try:
-            stop_task_monitoring()
+            from src.lazy_loader import lazy_loader
+            keyboard_funcs = lazy_loader.get_keyboard_handler()
+            if keyboard_funcs.get('stop_task_monitoring'):
+                keyboard_funcs['stop_task_monitoring']()
         except Exception:
             pass
 
