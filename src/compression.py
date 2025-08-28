@@ -233,8 +233,9 @@ def _ai_compression(history):
 
     summary_response = temp_client.send_message(prompt, include_structure=False) # 不包含项目结构，也不包含历史（因为是临时客户端）
 
-    if summary_response and 'content' in summary_response:
-        summary_text = summary_response['content']
+    # send_message 返回的是字符串，不是字典
+    if summary_response and isinstance(summary_response, str):
+        summary_text = summary_response
         # 创建一个新的历史记录，包含系统消息和AI生成的摘要
         new_history = [
             {'role': 'system', 'content': '这是先前对话的摘要。'},

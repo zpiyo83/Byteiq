@@ -65,6 +65,11 @@ class LazyLoader:
         """获取MCP客户端"""
         module = self.get_module('src.mcp_client')
         return getattr(module, 'mcp_client', None) if module else None
+    
+    def get_token_animator(self):
+        """获取token动画器"""
+        module = self.get_module('src.token_animator')
+        return getattr(module, 'token_animator', None) if module else None
 
 # 全局延迟加载器实例
 lazy_loader = LazyLoader()

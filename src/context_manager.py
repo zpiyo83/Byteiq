@@ -38,6 +38,10 @@ class ContextManager:
             "metadata": metadata or {}
         }
         
+        # 如果是用户的原始需求，标记为高优先级
+        if role == "user" and not self.conversation_history:
+            self.add_project_context("original_request", content, "critical")
+        
         self.conversation_history.append(message)
         self._optimize_context()
     
@@ -50,6 +54,9 @@ class ContextManager:
         
         # 执行上下文压缩策略
         self._compress_context()
+        
+        # 清理过期的代码上下文
+        self._cleanup_code_context()
     
     def _calculate_total_tokens(self) -> int:
         """计算当前总token数"""
@@ -168,10 +175,33 @@ class ContextManager:
         """添加项目上下文"""
         self.project_context[key] = {
             "content": content,
-            "priority": priority,
+            "priority": priority,  # critical > high > normal
             "timestamp": time.time(),
             "tokens": self.count_tokens(content)
         }
+    
+    def _get_todo_context(self) -> str:
+        """获取当前TODO任务上下文"""
+        try:
+            import os
+            todo_file = "todo_data.json"
+            if os.path.exists(todo_file):
+                import json
+                with open(todo_file, 'r', encoding='utf-8') as f:
+                    todos = json.load(f)
+                
+                active_todos = []
+                for todo in todos:
+                    if todo.get('status') in ['pending', 'in_progress']:
+                        priority_mark = "🔥" if todo.get('priority') == 'high' else "📋"
+                        status_mark = "⏳" if todo.get('status') == 'in_progress' else "📝"
+                        active_todos.append(f"{priority_mark}{status_mark} {todo.get('content', '')}")
+                
+                if active_todos:
+                    return "; ".join(active_todos[:3])  # 最多显示3个任务
+        except:
+            pass
+        return ""
     
     def add_code_context(self, file_path: str, content: str, context_type: str = "file"):
         """添加代码上下文"""
@@ -181,6 +211,12 @@ class ContextManager:
             "timestamp": time.time(),
             "tokens": self.count_tokens(content)
         }
+    
+    def update_todo_context(self):
+        """更新TODO上下文到项目上下文中"""
+        todo_context = self._get_todo_context()
+        if todo_context:
+            self.add_project_context("current_todos", todo_context, "high")
     
     def get_context_for_ai(self) -> Dict[str, Any]:
         """获取用于AI的上下文信息"""
@@ -220,35 +256,57 @@ class ContextManager:
         return context
     
     def get_enhanced_messages(self) -> List[Dict[str, str]]:
-        """获取增强的消息列表，包含上下文信息"""
+        """获取增强的消息列表，按重要性排序，不包含系统提示词"""
         messages = []
         
-        # 添加会话摘要（如果存在）
+        # 1. 最高优先级：原始需求和关键计划
+        critical_contexts = []
+        high_contexts = []
+        normal_contexts = []
+        
+        for key, ctx in self.project_context.items():
+            if ctx["priority"] == "critical":
+                critical_contexts.append(f"{key}: {ctx['content']}")
+            elif ctx["priority"] == "high":
+                high_contexts.append(f"{key}: {ctx['content']}")
+            else:
+                normal_contexts.append(f"{key}: {ctx['content']}")
+        
+        # 按优先级添加上下文
+        if critical_contexts:
+            messages.append({
+                "role": "system",
+                "content": f"[关键信息] {'; '.join(critical_contexts)}"
+            })
+        
+        if high_contexts:
+            messages.append({
+                "role": "system", 
+                "content": f"[重要上下文] {'; '.join(high_contexts)}"
+            })
+        
+        # 2. 添加TODO任务上下文
+        todo_context = self._get_todo_context()
+        if todo_context:
+            messages.append({
+                "role": "system",
+                "content": f"[当前任务] {todo_context}"
+            })
+        
+        # 3. 添加会话摘要
         if self.session_summary:
             messages.append({
                 "role": "system",
-                "content": f"会话上下文摘要: {self.session_summary}"
+                "content": f"[会话摘要] {self.session_summary}"
             })
         
-        # 添加项目上下文
-        if self.project_context:
-            project_info = []
-            for key, ctx in self.project_context.items():
-                if ctx["priority"] == "high":
-                    project_info.append(f"{key}: {ctx['content']}")
-            
-            if project_info:
-                messages.append({
-                    "role": "system",
-                    "content": f"项目上下文: {'; '.join(project_info)}"
-                })
-        
-        # 添加对话历史
+        # 4. 添加对话历史，但跳过系统消息避免重复
         for msg in self.conversation_history:
-            messages.append({
-                "role": msg["role"],
-                "content": msg["content"]
-            })
+            if msg["role"] != "system":
+                messages.append({
+                    "role": msg["role"],
+                    "content": msg["content"]
+                })
         
         return messages
     

@@ -75,6 +75,10 @@ class GuideAI:
         """分析bug并开始引导过程"""
         if not self.guide_model:
             return "错误：请先设置引导者AI模型"
+        
+        # 检查API配置
+        if not self.config.get("api_key"):
+            return "错误：API密钥未配置，请检查配置文件"
             
         # 构建初始分析请求
         initial_prompt = f"""
@@ -179,29 +183,93 @@ class GuideAI:
         
         return processed_response
 
-    def _send_to_guide_ai(self, prompt):
+    def _send_to_guide_ai(self, prompt, streaming=True):
         """向引导者AI发送请求"""
         try:
+            # 检查必要配置
+            api_key = self.config.get("api_key", "")
+            if not api_key:
+                return "错误：API密钥未配置"
+            
+            if not self.guide_model:
+                return "错误：引导者AI模型未设置"
+            
             headers = {
                 'Content-Type': 'application/json',
-                'Authorization': f'Bearer {self.config.get("api_key", "")}'
+                'Authorization': f'Bearer {api_key}'
             }
+            
+            # 构建消息历史
+            messages = [{"role": "system", "content": self.get_guide_system_prompt()}]
+            
+            # 添加历史对话（如果有）
+            if self.conversation_history:
+                messages.extend(self.conversation_history[-10:])  # 只保留最近10轮对话
+            
+            # 添加当前提示
+            messages.append({"role": "user", "content": prompt})
             
             data = {
                 "model": self.guide_model,
-                "messages": [
-                    {"role": "system", "content": self.get_guide_system_prompt()},
-                    {"role": "user", "content": prompt}
-                ],
-                "max_tokens": 2000,
-                "temperature": 0.7
+                "messages": messages,
+                "max_tokens": 4000,
+                "temperature": 0.7,
+                "stream": streaming
             }
             
-            response = requests.post(self.api_url, headers=headers, json=data, timeout=60)
-            response.raise_for_status()
+            print(f"{Fore.YELLOW}正在调用引导者AI ({self.guide_model})...{Style.RESET_ALL}")
             
-            result = response.json()
-            ai_response = result['choices'][0]['message']['content']
+            if streaming:
+                return self._handle_streaming_response(headers, data, prompt)
+            else:
+                return self._handle_non_streaming_response(headers, data, prompt)
+                
+        except requests.exceptions.Timeout:
+            return "错误：API调用超时，请检查网络连接"
+        except requests.exceptions.ConnectionError:
+            return "错误：无法连接到API服务器，请检查网络和API地址"
+        except Exception as e:
+            return f"引导者AI调用异常: {str(e)}"
+
+    def _handle_streaming_response(self, headers, data, prompt):
+        """处理流式响应"""
+        try:
+            response = requests.post(self.api_url, headers=headers, json=data, timeout=60, stream=True)
+            
+            if response.status_code != 200:
+                error_detail = ""
+                try:
+                    error_info = response.json()
+                    error_detail = error_info.get('error', {}).get('message', str(error_info))
+                except:
+                    error_detail = f"HTTP {response.status_code}: {response.text[:200]}"
+                return f"错误：API调用失败 - {error_detail}"
+            
+            print(f"{Fore.CYAN}🤖 引导者AI:{Style.RESET_ALL}")
+            
+            ai_response = ""
+            for line in response.iter_lines():
+                if line:
+                    line = line.decode('utf-8')
+                    if line.startswith('data: '):
+                        data_str = line[6:]
+                        if data_str == '[DONE]':
+                            break
+                        try:
+                            data_obj = json.loads(data_str)
+                            if 'choices' in data_obj and data_obj['choices']:
+                                delta = data_obj['choices'][0].get('delta', {})
+                                content = delta.get('content', '')
+                                if content:
+                                    print(content, end='', flush=True)
+                                    ai_response += content
+                        except json.JSONDecodeError:
+                            continue
+            
+            print()  # 换行
+            
+            if not ai_response:
+                return "错误：引导者AI返回空响应"
             
             # 处理工具调用
             processed_response = self.process_guide_tools(ai_response)
@@ -215,9 +283,49 @@ class GuideAI:
                 self.conversation_history = self.conversation_history[-20:]
             
             return processed_response
-                
+            
         except Exception as e:
-            return f"引导者AI调用异常: {str(e)}"
+            return f"流式响应处理异常: {str(e)}"
+
+    def _handle_non_streaming_response(self, headers, data, prompt):
+        """处理非流式响应"""
+        try:
+            response = requests.post(self.api_url, headers=headers, json=data, timeout=60)
+            
+            if response.status_code != 200:
+                error_detail = ""
+                try:
+                    error_info = response.json()
+                    error_detail = error_info.get('error', {}).get('message', str(error_info))
+                except:
+                    error_detail = f"HTTP {response.status_code}: {response.text[:200]}"
+                return f"错误：API调用失败 - {error_detail}"
+            
+            result = response.json()
+            
+            if 'choices' not in result or not result['choices']:
+                return "错误：API返回格式异常，无choices字段"
+                
+            ai_response = result['choices'][0]['message']['content']
+            
+            if not ai_response:
+                return "错误：引导者AI返回空响应"
+            
+            # 处理工具调用
+            processed_response = self.process_guide_tools(ai_response)
+            
+            # 保存对话历史
+            self.conversation_history.append({"role": "user", "content": prompt})
+            self.conversation_history.append({"role": "assistant", "content": processed_response})
+                
+            # 限制历史长度
+            if len(self.conversation_history) > 20:
+                self.conversation_history = self.conversation_history[-20:]
+            
+            return processed_response
+            
+        except Exception as e:
+            return f"非流式响应处理异常: {str(e)}"
     
     def format_guidance_for_main_ai(self, guidance_text):
         """将引导者的指导格式化为主AI可理解的格式"""

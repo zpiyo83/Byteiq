@@ -119,127 +119,207 @@ def show_settings():
 
 def process_ai_conversation(user_input):
     """处理AI对话"""
+    # 导入theme_manager
+    from src.theme import theme_manager
+    
     # 检查是否配置了API密钥
     config = load_config()
     if not config.get('api_key'):
         print("错误：请先设置API密钥。使用 /s 命令进入设置。")
         return
     
-    # 自动创建TODO任务
     try:
-        from src.auto_todo import auto_todo_manager
-        task_id = auto_todo_manager.create_todo_from_request(user_input)
-        if task_id:
-            print(f"📝 已自动创建任务: {auto_todo_manager.active_tasks[task_id]['title']}")
-    except Exception:
-        pass
-    
-    # 使用延迟加载器获取AI客户端
-    from src.lazy_loader import lazy_loader
-    ai_client = lazy_loader.get_ai_client()
-    if ai_client:
+        # 自动创建TODO任务
+        try:
+            from src.auto_todo import auto_todo_manager
+            task_id = auto_todo_manager.create_todo_from_request(user_input)
+            if task_id:
+                print(f"📝 已自动创建任务: {auto_todo_manager.active_tasks[task_id]['title']}")
+        except Exception as e:
+            # 忽略自动TODO创建过程中的任何错误，不显示错误信息
+            pass
+        
+        # 使用延迟加载器获取AI客户端
+        from src.lazy_loader import lazy_loader
+        ai_client = lazy_loader.get_ai_client()
+        if ai_client:
+            ai_response = ai_client.send_message(user_input)
+        else:
+            # 回退到直接导入
+            from src.ai_client import ai_client
+            ai_response = ai_client.send_message(user_input)
+
+        # 检查是否处于HACPP模式
+        from src.modes import hacpp_mode
+        from src.hacpp_client import hacpp_client
+
+        if hacpp_mode.is_hacpp_active():
+            print(f"\n{theme_manager.format_tool_header('HACPP', '模式激活 - 双AI协作处理')}")
+            hacpp_client.process_hacpp_request(user_input)
+            return
+
+        # 使用延迟加载器获取AI工具处理器
+        ai_tool_processor = lazy_loader.get_ai_tools()
+        if not ai_tool_processor:
+            # 回退到直接导入
+            from src.ai_tools import ai_tool_processor
+        
+        # 使用延迟加载器获取token动画器
+        token_animator = lazy_loader.get_token_animator()
+        if not token_animator:
+            # 回退到直接导入
+            from src.token_animator import token_animator
+        
+        # 重置中断标志并启动ESC监控
+        from src.keyboard_handler import reset_interrupt_flag, is_task_interrupted, start_task_monitoring, stop_task_monitoring, interrupt_current_task, show_esc_hint
+        reset_interrupt_flag()
+        
+        # 启动ESC键监控
+        start_task_monitoring(interrupt_current_task)
+        show_esc_hint()
+
+        # 开始上传动画
+        token_animator.start_upload_animation(user_input)
+        
+        # 等待上传动画完成后再显示检查状态
+        token_animator.wait_upload_complete()
+        print(f"{Fore.YELLOW}● 检查中...{Style.RESET_ALL}")
+        
+        # 发送消息给AI（已集成思考动画和ESC监控）
         ai_response = ai_client.send_message(user_input)
-    else:
-        # 回退到直接导入
-        from src.ai_client import ai_client
-        ai_response = ai_client.send_message(user_input)
 
-    # 检查是否处于HACPP模式
-    from src.modes import hacpp_mode
-    from src.hacpp_client import hacpp_client
-
-    if hacpp_mode.is_hacpp_active():
-        print(f"\n{theme_manager.format_tool_header('HACPP', '模式激活 - 双AI协作处理')}")
-        hacpp_client.process_hacpp_request(user_input)
-        return
-
-    # 重置中断标志
-    from src.keyboard_handler import reset_interrupt_flag, is_task_interrupted
-    reset_interrupt_flag()
-
-    # 使用延迟加载器获取AI工具处理器
-    from src.lazy_loader import lazy_loader
-    ai_tool_processor = lazy_loader.get_ai_tools()
-    if not ai_tool_processor:
-        # 回退到直接导入
-        from src.ai_tools import ai_tool_processor
-
-    # 发送消息给AI（已集成思考动画和ESC监控）
-    ai_response = ai_client.send_message(user_input)
-
-    # 检查是否在发送阶段被中断
-    if is_task_interrupted():
-        print(f"\n  • 任务已被用户中断")
-        return
-
-    # 检查是否启用了原始输出模式
-    from src.debug_config import is_raw_output_enabled
-    if is_raw_output_enabled():
-        print(f"\n{ai_response}")
-        return
-
-    # 处理AI响应和工具调用（添加循环计数器和重复检测）
-    max_iterations = 50  # 🚨 最大迭代次数提升到50次
-    iteration_count = 0
-    recent_operations = []  # 记录最近的操作，用于检测重复
-
-    while True:
-        # 检查是否被中断
+        # 检查是否在发送阶段被中断
         if is_task_interrupted():
-            print(f"\n  • 任务处理已被用户中断")
-            break
+            print(f"\n  • 任务已被用户中断")
+            token_animator.cleanup()
+            return
 
-        iteration_count += 1
-        if iteration_count > max_iterations:
-            print(f"\n  • 警告: AI处理超过最大迭代次数({max_iterations})，停止处理")
-            break
+        # 开始下载动画
+        if ai_response:
+            token_animator.start_download_animation(ai_response)
+            token_animator.wait_download_complete()
 
-        result = ai_tool_processor.process_response(ai_response)
+        # 检查是否启用了原始输出模式
+        from src.debug_config import is_raw_output_enabled
+        if is_raw_output_enabled():
+            print(f"\n{ai_response}")
+            token_animator.cleanup()
+            return
 
-        # 检测重复操作
-        current_operation = result['display_text'].strip()
-        if current_operation:
-            recent_operations.append(current_operation)
-            # 只保留最近5次操作
-            if len(recent_operations) > 5:
-                recent_operations.pop(0)
+        # 处理AI响应和工具调用（添加循环计数器和重复检测）
+        max_iterations = 100  # 🚨 最大迭代次数提升到100次
+        iteration_count = 0
+        recent_operations = []  # 记录最近的操作，用于检测重复
 
-            # 检查是否有重复操作（最近3次都是相同操作）
-            if len(recent_operations) >= 3 and len(set(recent_operations[-3:])) == 1:
-                print(f"\n  • 检测到重复操作，停止处理避免无限循环")
-                break
-
-        # 显示AI的意图（过滤XML）
-        if result['display_text'].strip():
-            print(f"\n{theme_manager.format_tool_header('AI', result['display_text'])}")
-
-        # 如果有工具调用，显示结果
-        if result['has_tool'] and result['tool_result']:
-            print(f"  • 执行结果: {result['tool_result']}")
-
-        # 🚨 简化停止条件检查 - 只有should_continue=False才能停止
-        if not result['should_continue']:
-            print(f"\n  • 任务处理完成")
-            break
-
-        # 🚨 如果需要继续，继续对话（包括工具执行失败的情况）
-        if result['has_tool']:
-            # 将工具执行结果发送回AI，包括错误信息
-            ai_response = ai_client.send_message(f"工具执行结果: {result['tool_result']}", include_structure=False)
-
-            # 检查继续处理时是否被中断
+        while True:
+            # 检查是否被中断
             if is_task_interrupted():
                 print(f"\n  • 任务处理已被用户中断")
                 break
-        else:
-            # 没有工具调用的情况，也要检查是否应该继续
-            if result['should_continue']:
-                # 发送一个继续的提示
-                ai_response = ai_client.send_message("请继续完成任务。", include_structure=False)
-            else:
+
+            iteration_count += 1
+            if iteration_count >= max_iterations:
+                print(f"\n{Fore.YELLOW}⚠️ 现在已经迭代{max_iterations}次，请确认后继续{Style.RESET_ALL}")
+                print(f"{Fore.CYAN}输入 'y' 继续处理，或按 Enter 停止:{Style.RESET_ALL} ", end="", flush=True)
+                
+                try:
+                    user_choice = input().strip().lower()
+                    if user_choice == 'y':
+                        print(f"{Fore.GREEN}继续处理...{Style.RESET_ALL}")
+                        max_iterations += 50  # 每次确认后再增加50次
+                    else:
+                        print(f"\n  • 用户选择停止处理")
+                        break
+                except (EOFError, KeyboardInterrupt):
+                    print(f"\n  • 用户中断，停止处理")
+                    break
+
+            result = ai_tool_processor.process_response(ai_response)
+
+            # 检测重复操作
+            current_operation = result['display_text'].strip()
+            if current_operation:
+                recent_operations.append(current_operation)
+                # 只保留最近5次操作
+                if len(recent_operations) > 5:
+                    recent_operations.pop(0)
+
+                # 检查是否有重复操作（最近3次都是相同操作）
+                if len(recent_operations) >= 3 and len(set(recent_operations[-3:])) == 1:
+                    print(f"\n  • 检测到重复操作，停止处理避免无限循环")
+                    break
+
+            # 显示AI的意图（过滤XML）
+            if result['display_text'].strip():
+                print(f"\n{theme_manager.format_tool_header('AI', result['display_text'])}")
+
+            # 工具调用结果已在工具输出中显示，这里不再重复显示
+
+            # 简化停止条件检查 - 只有should_continue=False才能停止
+            if not result['should_continue']:
                 print(f"\n  • 任务处理完成")
                 break
 
+            # 如果需要继续，继续对话（包括工具执行失败的情况）
+            if result['has_tool']:
+                # 检查是否被中断
+                if is_task_interrupted():
+                    print(f"\n  • 任务处理已被用户中断")
+                    break
+                    
+                # 将工具执行结果发送回AI，包括错误信息
+                ai_response = ai_client.send_message(f"工具执行结果: {result['tool_result']}", include_structure=False)
+                
+                # 为继续的AI响应显示下载动画
+                if ai_response:
+                    token_animator.start_download_animation(ai_response)
+                    token_animator.wait_download_complete()
+
+                # 检查继续处理时是否被中断
+                if is_task_interrupted():
+                    print(f"\n  • 任务处理已被用户中断")
+                    break
+            else:
+                # 没有工具调用的情况，也要检查是否应该继续
+                if result['should_continue']:
+                    # 检查是否被中断
+                    if is_task_interrupted():
+                        print(f"\n  • 任务处理已被用户中断")
+                        break
+                        
+                    # 发送一个继续的提示
+                    ai_response = ai_client.send_message("请继续完成任务。", include_structure=False)
+                    
+                    # 为继续的AI响应显示下载动画
+                    if ai_response:
+                        token_animator.start_download_animation(ai_response)
+                        token_animator.wait_download_complete()
+                    
+                    # 检查继续处理时是否被中断
+                    if is_task_interrupted():
+                        print(f"\n  • 任务处理已被用户中断")
+                        break
+                else:
+                    break
+
+        # 清理token动画器
+        try:
+            token_animator.cleanup()
+        except:
+            pass
+    
+    except Exception as e:
+        print(f"处理AI对话时出错: {e}")
+        import traceback
+        traceback.print_exc()
+    finally:
+        # 确保停止ESC监控
+        try:
+            from src.keyboard_handler import stop_task_monitoring
+            stop_task_monitoring()
+        except:
+            pass
+    
     print()  # 空行分隔
 
 # ========== 命令处理 ==========
@@ -334,16 +414,6 @@ def handle_special_commands(user_input):
         handle_export_command()
         return True
 
-    # 清除命令（增强版）
-    if user_input.lower() in ['/clear', '/c']:
-        handle_clear_command()
-        return True
-
-    # 退出命令
-    if user_input.lower() in ['/exit', '/quit', '/q']:
-        print(f"  • 再见！感谢使用 ByteIQ")
-        return "exit"
-
     return False
 
 def handle_analyze_command():
@@ -394,14 +464,21 @@ def handle_analyze_command():
         print(f"  • BYTEIQ.md 文件包含了项目的详细配置，AI助手将根据此配置提供更精准的帮助")
         
     except Exception as e:
-        print(f"  • 项目分析失败: {e}")
+        print(f"处理AI对话时出错: {e}")
         import traceback
-        print(f"  • 详细错误信息:")
         traceback.print_exc()
+    finally:
+        # 确保停止ESC监控
+        try:
+            from src.keyboard_handler import stop_task_monitoring
+            stop_task_monitoring()
+        except:
+            pass
 
 def handle_chat_command(user_input):
     """处理聊天上下文管理命令"""
     try:
+        from src.theme import theme_manager
         from src.lazy_loader import lazy_loader
         ai_client = lazy_loader.get_ai_client()
         if not ai_client:
@@ -451,6 +528,7 @@ def handle_export_command():
 def handle_context_command(user_input):
     """处理上下文管理命令"""
     try:
+        from src.theme import theme_manager
         from src.ai_client import ai_client
         
         parts = user_input.split()
@@ -519,6 +597,7 @@ def handle_context_command(user_input):
 def handle_agent_command(user_input):
     """处理代理增强命令"""
     try:
+        from src.theme import theme_manager
         from src.ai_client import ai_client
         
         parts = user_input.split()
@@ -572,11 +651,11 @@ def handle_clear_command():
     except Exception as e:
         print(f"  • 清除命令处理失败: {e}")
 
-def handle_mcp_command():
+def handle_mcp_command(user_input):
     """处理MCP命令"""
     try:
+        from src.theme import theme_manager
         from src.mcp_config import mcp_config
-
 
         print(f"\n{theme_manager.format_tool_header('MCP', 'Model Context Protocol 管理')}")
         print("=" * 60)
@@ -900,10 +979,11 @@ def print_header():
     print(f"{Fore.LIGHTCYAN_EX}│{' ' * 15}智能编程助手 v2.0{' ' * 23}│{Style.RESET_ALL}")
     print(f"{Fore.LIGHTCYAN_EX}╰{'─' * 58}╯{Style.RESET_ALL}")
 
-def print_status():
-    """打印状态信息"""
+def show_prompt():
+    """显示输入提示符"""
     from src.modes import mode_manager
-
+    from src.theme import theme_manager
+    
     # 当前模式行
     mode_text = f"Mode: {mode_manager.get_current_mode()} (Alt+L to switch)"
     mode_color = theme_manager.get_tool_color('success') if mode_manager.get_current_mode() == "sprint" else theme_manager.get_tool_color('warning')
@@ -994,6 +1074,11 @@ def initialize_theme():
 def main():
     """主程序入口"""
     try:
+        # 性能优化：启动时优化
+        from src.performance_optimizer import get_performance_optimizer
+        optimizer = get_performance_optimizer()
+        optimizer.optimize_startup()
+        
         # 初始化主题设置
         initialize_theme()
 
@@ -1008,6 +1093,10 @@ def main():
         # 主循环
         while True:
             try:
+                # 定期检查内存使用并优化
+                if optimizer.should_run_gc():
+                    optimizer.optimize_memory()
+                
                 # 输入提示符现在由 get_input_with_claude_style() 处理
                 # print_input_box()
 
@@ -1024,57 +1113,40 @@ def main():
                         user_input = get_input_with_claude_style()
                 except EOFError:
                     # 处理EOF错误（比如Ctrl+Z或管道输入结束）
-                    try:
-                        print(f"\n{Fore.CYAN}检测到输入结束，程序退出{Style.RESET_ALL}")
-                    except Exception:
-                        import sys
-                        sys.__stdout__.write("\n检测到输入结束，程序退出\n")
-                        sys.__stdout__.flush()
+                    print(f"\n{Fore.CYAN}检测到输入结束，程序退出{Style.RESET_ALL}")
                     break
-                except KeyboardInterrupt:
-                    # 处理Ctrl+C
-                    try:
-                        print(f"\n  • 使用 /exit 退出程序")
-                    except Exception:
-                        import sys
-                        sys.__stdout__.write("\n使用 /exit 退出程序\n")
-                        sys.__stdout__.flush()
+                except Exception as e:
+                    print(f"\n{Fore.RED}输入处理错误: {e}{Style.RESET_ALL}")
                     continue
-
-                # 检查空输入
+                    
                 if not user_input:
                     continue
-
+                
                 # 处理特殊命令
                 result = handle_special_commands(user_input)
                 if result == "exit":
                     break
                 elif result:
                     continue
-
+                
                 # 处理AI对话
                 process_ai_conversation(user_input)
-
+                
             except KeyboardInterrupt:
-                try:
-                    print(f"\n{Fore.YELLOW}使用 /exit 退出程序{Style.RESET_ALL}")
-                except Exception:
-                    # 如果colorama出错，使用基本输出
-                    import sys
-                    sys.__stdout__.write("\n使用 /exit 退出程序\n")
-                    sys.__stdout__.flush()
-                continue
-            except EOFError:
-                try:
-                    print(f"\n{Fore.CYAN}再见！{Style.RESET_ALL}")
-                except Exception:
-                    # 如果colorama出错，使用基本输出
-                    import sys
-                    sys.__stdout__.write("\n再见！\n")
-                    sys.__stdout__.flush()
+                print(f"\n{Fore.YELLOW}程序被用户中断{Style.RESET_ALL}")
                 break
-
+            except EOFError:
+                print(f"\n{Fore.YELLOW}输入结束，退出程序{Style.RESET_ALL}")
+                break
+            except Exception as e:
+                print(f"{Fore.RED}程序发生错误: {e}{Style.RESET_ALL}")
+                import traceback
+                traceback.print_exc()
+                
     except Exception as e:
+        print(f"{Fore.RED}程序启动失败: {e}{Style.RESET_ALL}")
+        import traceback
+        traceback.print_exc()
         try:
             print(f"  • 程序发生错误: {e}")
         except Exception:

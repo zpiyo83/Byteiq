@@ -117,19 +117,12 @@ My mandatory next step is: {inherited_plan['next']}
                 if iteration_count > 1 and original_request_reminder:
                     print(f"{Fore.BLUE}📋 原始需求提醒: {user_input[:80]}...{Style.RESET_ALL}")
             
+            # 工具执行结果已在工具输出中显示，避免重复
             if result.get('has_tool') and result.get('tool_result'):
                 if not (hacpp_mode.is_hacpp_active() and hacpp_mode.phase == "researching"):
-                    tool_result_text = result.get('tool_result', '')
-                    executed_tools = result.get('executed_tools', [])
-
-                    # 仅当不是成功的execute_command时才打印结果，以避免重复
-                    is_successful_command = 'execute_command' in executed_tools and "命令执行成功" in tool_result_text
-                    if not is_successful_command:
-                        print(f"{Fore.YELLOW}📋 结果: {tool_result_text}{Style.RESET_ALL}")
-                        
-                        # 显示原始需求提醒（如果有的话）
-                        if iteration_count > 1 and original_request_reminder:
-                            print(f"{Fore.BLUE}📋 原始需求提醒: {user_input[:80]}...{Style.RESET_ALL}")
+                    # 显示原始需求提醒（如果有的话）
+                    if iteration_count > 1 and original_request_reminder:
+                        print(f"{Fore.BLUE}📋 原始需求提醒: {user_input[:80]}...{Style.RESET_ALL}")
 
             if result.get('should_continue'):
                 print(f"\n{Fore.CYAN}AI 继续处理... (步骤 {iteration_count}/{max_iterations}){Style.RESET_ALL}")

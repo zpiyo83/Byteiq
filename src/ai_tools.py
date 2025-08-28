@@ -41,7 +41,9 @@ class AIToolProcessor:
             'task_complete': self.task_complete,
             'plan': self.plan,
             'plan': self.plan,
-            'code_search': self.code_search
+            'code_search': self.code_search,
+            'list_directory': self.list_directory,
+            'end_guidance_start_fixing': self.end_guidance_start_fixing
         }
         self.todo_renderer = get_todo_renderer(todo_manager)
 
@@ -72,7 +74,7 @@ class AIToolProcessor:
             'replace_code': r'<replace_code><path>(.*?)</path><start_line>(.*?)</start_line><end_line>(.*?)</end_line><content>(.*?)</content></replace_code>',
             'execute_command': r'<execute_command><command>(.*?)</command></execute_command>',
             'add_todo': r'<add_todo><title>(.*?)</title><description>(.*?)</description><priority>(.*?)</priority></add_todo>',
-            'update_todo': r'<update_todo><id>(.*?)</id><status>(.*?)</status><progress>(.*?)</progress></update_todo>',
+            'update_todo': r'<update_todo><id>(.*?)</id><status>(.*?)</status>(?:<progress>(.*?)</progress>)?</update_todo>',
             'show_todos': r'<show_todos></show_todos>',
             'delete_file': r'<delete_file><path>(.*?)</path></delete_file>',
             'mcp_call_tool': r'<mcp_call_tool><tool>(.*?)</tool><arguments>(.*?)</arguments></mcp_call_tool>',
@@ -81,7 +83,7 @@ class AIToolProcessor:
             'mcp_list_resources': r'<mcp_list_resources></mcp_list_resources>',
             'mcp_server_status': r'<mcp_server_status></mcp_server_status>',
             'task_complete': r'<task_complete><summary>(.*?)</summary></task_complete>',
-            'plan': r'<plan><completed_action>(.*?)</completed_action><next_step>(.*?)</next_step></plan>',
+            'plan': r'<plan><completed_action>(.*?)</completed_action><next_step>(.*?)</next_step><original_request>(.*?)</original_request><completed_tasks>(.*?)</completed_tasks></plan>',
             'code_search': r'<code_search><keyword>(.*?)</keyword></code_search>'
         }
 
@@ -107,6 +109,9 @@ class AIToolProcessor:
             # 检查是否包含可能的不完整工具调用
             incomplete_tool_match = self._check_incomplete_tool_call(ai_response)
             if incomplete_tool_match:
+                # 在命令行输出提示信息
+                from colorama import Fore, Style
+                print(f"{Fore.YELLOW}⚠️ 检测到不完整的工具调用: AI可能想要调用{incomplete_tool_match['tool_name']}工具但格式不完整{Style.RESET_ALL}")
                 return {
                     'has_tool': True,
                     'tool_result': f"❌ 工具调用失败: AI输出不完整，检测到可能的{incomplete_tool_match['tool_name']}工具调用但格式不完整",
@@ -117,8 +122,7 @@ class AIToolProcessor:
 
         # 提取一次思考过程
         thought_process = self._extract_thought_process(ai_response, tool_patterns)
-        if thought_process:
-            print(f"\n{Fore.GREEN}AI: {thought_process}{Style.RESET_ALL}")
+        # 注意：思考过程已在流式输出中显示，这里不再重复输出
 
         all_tool_results = []
         executed_tool_names = []
@@ -140,9 +144,7 @@ class AIToolProcessor:
                     tool_result = f"当前模式 ({mode_manager.get_current_mode()}) 不允许此操作"
                     tool_summary = f"操作被禁止: {tool_name}"
                 elif permission == "confirm":
-                    # 在多工具调用中，只在第一次询问前打印思考过程
-                    if i == 0 and thought_process:
-                        print(f"\n{Fore.GREEN}AI: {thought_process}{Style.RESET_ALL}")
+                    # 在多工具调用中显示工具调用信息
                     print(f"\n{Fore.YELLOW}AI 想要 ({i+1}/{len(found_tool_calls)}) {temp_summary}{Style.RESET_ALL}")
 
                     if self._ask_user_confirmation(f"执行操作: {temp_summary}"):
@@ -163,15 +165,60 @@ class AIToolProcessor:
 
                 all_tool_results.append(tool_result)
                 executed_tool_names.append(tool_name)
-                # 始终打印我们生成的摘要，因为它现在是格式化输出的关键部分
-                print(f"{Fore.CYAN}{tool_summary}{Style.RESET_ALL}")
+                
+                # 特殊处理需要显示完整输出的工具
+                if tool_name == 'show_todos':
+                    # show_todos工具需要显示完整的TODO列表
+                    if isinstance(tool_result, str) and tool_result:
+                        print(tool_result)
+                elif tool_name == 'plan':
+                    # plan工具需要格式化显示
+                    if isinstance(tool_result, str) and '::' in tool_result:
+                        parts = tool_result.split('::')
+                        if len(parts) >= 3:
+                            print(f"\n{Fore.CYAN}📋 执行计划更新:{Style.RESET_ALL}")
+                            for part in parts[1:]:  # 跳过PLAN标记
+                                if part.startswith('COMPLETED:'):
+                                    print(f"  ✅ 已完成: {part[10:]}")
+                                elif part.startswith('NEXT:'):
+                                    print(f"  ➡️ 下一步: {part[5:]}")
+                                elif part.startswith('ORIGINAL_REQUEST:'):
+                                    print(f"  📌 原始需求: {part[17:]}")
+                                elif part.startswith('COMPLETED_TASKS:'):
+                                    print(f"  📝 已完成任务: {part[16:]}")
+                else:
+                    # 其他工具打印摘要（如果有）
+                    if tool_summary:
+                        print(f"{Fore.CYAN}{tool_summary}{Style.RESET_ALL}")
 
-        # 如果没有工具调用，显示纯文本
+        # 处理显示文本
         if not tool_found:
             display_text = self._remove_xml_tags(ai_response)
+        else:
+            # 提取思考文本但不立即显示，保持正确的显示顺序
+            thought_text = self._extract_thought_process(ai_response, tool_patterns)
+            if thought_text.strip():
+                display_text = thought_text.strip()
+            else:
+                display_text = ""
 
-        # 聚合最终结果
-        final_tool_result = "\n".join(filter(None, all_tool_results))
+        # 聚合最终结果，确保所有元素都是字符串
+        string_results = []
+        for result in all_tool_results:
+            if isinstance(result, dict):
+                # 如果是字典，转换为字符串
+                if 'message' in result:
+                    string_results.append(result['message'])
+                elif 'summary' in result:
+                    string_results.append(result['summary'])
+                else:
+                    string_results.append(str(result))
+            elif isinstance(result, str):
+                string_results.append(result)
+            else:
+                string_results.append(str(result))
+        
+        final_tool_result = "\n".join(filter(None, string_results))
 
         # 强制继续判断逻辑
         should_continue = False
@@ -206,7 +253,7 @@ class AIToolProcessor:
         # 定义可能的不完整工具调用模式
         incomplete_patterns = {
             'read_file': r'<read_file>(.*?)</read_file>',
-            'write_file': r'<write_file>(.*?)</write_file>',
+            'write_file': r'<write_file>(.*?)</write_file>', 
             'create_file': r'<create_file>(.*?)</create_file>',
             'insert_code': r'<insert_code>(.*?)</insert_code>',
             'replace_code': r'<replace_code>(.*?)</replace_code>',
@@ -216,12 +263,36 @@ class AIToolProcessor:
             'delete_file': r'<delete_file>(.*?)</delete_file>'
         }
         
+        # 检查开始标签但没有正确结构的情况
+        start_tag_patterns = {
+            'read_file': r'<read_file(?![^>]*>)',
+            'write_file': r'<write_file(?![^>]*>)',
+            'create_file': r'<create_file(?![^>]*>)',
+            'insert_code': r'<insert_code(?![^>]*>)',
+            'replace_code': r'<replace_code(?![^>]*>)',
+            'execute_command': r'<execute_command(?![^>]*>)',
+            'add_todo': r'<add_todo(?![^>]*>)',
+            'update_todo': r'<update_todo(?![^>]*>)',
+            'delete_file': r'<delete_file(?![^>]*>)'
+        }
+        
+        # 首先检查完整但内容不正确的工具调用
         for tool_name, pattern in incomplete_patterns.items():
             match = re.search(pattern, text, re.DOTALL)
             if match:
                 return {
                     'tool_name': tool_name,
-                    'matched_text': match.group(1)
+                    'matched_text': match.group(1),
+                    'type': 'incomplete_content'
+                }
+        
+        # 然后检查只有开始标签的情况
+        for tool_name, pattern in start_tag_patterns.items():
+            if re.search(pattern, text):
+                return {
+                    'tool_name': tool_name,
+                    'matched_text': '',
+                    'type': 'incomplete_tag'
                 }
         
         return None
@@ -485,7 +556,7 @@ class AIToolProcessor:
             return f"替换代码失败: {str(e)}"
 
     def execute_command(self, command):
-        """执行命令工具，并实时显示输出"""
+        """执行命令工具，并实时显示输出，支持ESC键中断"""
         try:
             # 安全检查
             dangerous_commands = ['rm -rf', 'del /f', 'format', 'fdisk', 'mkfs']
@@ -494,6 +565,9 @@ class AIToolProcessor:
 
             print(f"\n{theme_manager.format_tool_header('Execute', command)}")
 
+            # 导入键盘处理器
+            from .keyboard_handler import is_task_interrupted
+            
             process = subprocess.Popen(
                 command,
                 shell=True,
@@ -506,15 +580,60 @@ class AIToolProcessor:
 
             output_lines = []
             print(f"{Fore.CYAN}实时输出:{Style.RESET_ALL}")
-            # 实时读取输出
-            for line in iter(process.stdout.readline, ''):
-                # 移除换行符并打印
-                clean_line = line.rstrip()
-                print(f"  {clean_line}", flush=True)
-                output_lines.append(clean_line)
+            
+            # 实时读取输出，支持中断检查
+            import select
+            import sys
+            
+            while True:
+                # 检查是否被ESC键中断
+                if is_task_interrupted():
+                    print(f"\n{Fore.YELLOW}⚠️ 检测到ESC键，正在终止命令...{Style.RESET_ALL}")
+                    process.terminate()
+                    try:
+                        process.wait(timeout=3)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                        process.wait()
+                    return "命令被用户中断"
+                
+                # 检查进程是否结束
+                if process.poll() is not None:
+                    break
+                
+                # 读取输出（非阻塞）
+                if sys.platform == "win32":
+                    # Windows下使用不同的方法
+                    import time
+                    time.sleep(0.1)
+                    try:
+                        line = process.stdout.readline()
+                        if line:
+                            clean_line = line.rstrip()
+                            print(f"  {clean_line}", flush=True)
+                            output_lines.append(clean_line)
+                    except:
+                        pass
+                else:
+                    # Unix/Linux下使用select
+                    ready, _, _ = select.select([process.stdout], [], [], 0.1)
+                    if ready:
+                        line = process.stdout.readline()
+                        if line:
+                            clean_line = line.rstrip()
+                            print(f"  {clean_line}", flush=True)
+                            output_lines.append(clean_line)
+
+            # 读取剩余输出
+            remaining_output = process.stdout.read()
+            if remaining_output:
+                for line in remaining_output.split('\n'):
+                    if line.strip():
+                        print(f"  {line}", flush=True)
+                        output_lines.append(line)
 
             process.stdout.close()
-            return_code = process.wait()
+            return_code = process.returncode
             full_output = "\n".join(output_lines)
 
             print(f"\n{Fore.CYAN}执行完毕 (返回码: {return_code}){Style.RESET_ALL}")
@@ -537,25 +656,36 @@ class AIToolProcessor:
         except Exception as e:
             return f"添加任务失败: {str(e)}"
 
-    def update_todo(self, todo_id: str, status: str, progress: int = 0):
+    def update_todo(self, todo_id: str, status: str, progress: str = None):
         """更新TODO任务工具"""
         try:
-            # 如果是短ID，尝试匹配完整ID
-            if len(todo_id) == 8:
-                full_id = None
-                for tid in todo_manager.todos.keys():
-                    if tid.startswith(todo_id):
-                        full_id = tid
-                        break
-                if full_id:
-                    todo_id = full_id
+            # 智能ID匹配 - 支持短ID和完整ID
+            matched_id = None
+            if todo_id in todo_manager.todos:
+                matched_id = todo_id
+            else:
+                # 尝试匹配短ID（支持任意长度）
+                matches = [tid for tid in todo_manager.todos.keys() if tid.startswith(todo_id)]
+                if len(matches) == 1:
+                    matched_id = matches[0]
+                elif len(matches) > 1:
+                    return f"ID {todo_id} 匹配到多个任务，请使用更完整的ID"
                 else:
                     return f"未找到ID为 {todo_id} 的任务"
 
-            success = todo_manager.update_todo(todo_id, status=status, progress=progress)
+            # 构建更新参数
+            update_params = {'status': status}
+            if progress is not None and progress.strip():
+                try:
+                    update_params['progress'] = int(progress)
+                except ValueError:
+                    return f"进度值无效: {progress}"
+
+            success = todo_manager.update_todo(matched_id, **update_params)
             if success:
-                todo = todo_manager.get_todo(todo_id)
-                return f"成功更新任务: {todo.title} -> {status} ({progress}%)"
+                todo = todo_manager.get_todo(matched_id)
+                progress_text = f" ({update_params.get('progress', todo.progress)}%)" if 'progress' in update_params else ""
+                return f"成功更新任务: {todo.title} -> {status}{progress_text}"
             else:
                 return f"更新任务失败: 任务不存在"
         except Exception as e:
@@ -569,15 +699,54 @@ class AIToolProcessor:
             return f"显示任务列表失败: {str(e)}"
 
     def task_complete(self, summary):
-        """任务完成工具"""
+        """任务完成工具 - 自动保存工作记忆到项目长久记忆"""
         from .modes import hacpp_mode
+        from .project_memory import get_cached_memory_manager
+        import os
+        
+        # 获取当前项目的记忆管理器
+        try:
+            memory_manager = get_cached_memory_manager()
+            
+            # 从summary中提取关键信息
+            completed_tasks = []
+            key_insights = []
+            
+            # 简单解析summary中的任务和洞察
+            lines = summary.split('\n')
+            current_section = None
+            
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                    
+                # 识别任务相关内容
+                if any(keyword in line.lower() for keyword in ['完成', '实现', '创建', '修改', '添加', '删除', '优化']):
+                    completed_tasks.append(line)
+                    
+                # 识别技术洞察
+                if any(keyword in line.lower() for keyword in ['技术', '方案', '架构', '设计', '算法', '优化']):
+                    key_insights.append(line)
+            
+            # 保存到项目记忆
+            success = memory_manager.add_session_summary(
+                summary=summary,
+                completed_tasks=completed_tasks[:10],  # 限制数量
+                key_insights=key_insights[:5]
+            )
+            
+            memory_status = "项目记忆已更新" if success else "项目记忆更新失败"
+            
+        except Exception as e:
+            memory_status = f"项目记忆更新异常: {str(e)}"
         
         if hacpp_mode.is_hacpp_active():
             # 在HACPP模式下，便宜AI调用task_complete时不结束流程
             if hacpp_mode.phase == "researching":
                 return {
                     "success": True,
-                    "message": "研究员分析完成，准备交接给执行者",
+                    "message": f"研究阶段完成，准备切换到修复阶段。{memory_status}",
                     "summary": summary,
                     "should_continue": True  # 添加标志表示需要继续流程
                 }
@@ -585,70 +754,180 @@ class AIToolProcessor:
             else:
                 return {
                     "success": True,
-                    "message": "任务完成，流程结束",
-                    "summary": summary,
-                    "should_continue": False
+                    "message": f"任务已完成。{memory_status}",
+                    "summary": summary
                 }
         else:
-            # 非HACPP模式直接结束
             return {
                 "success": True,
-                "message": "任务完成，流程结束",
-                "summary": summary,
-                "should_continue": False
+                "message": f"任务已完成。{memory_status}",
+                "summary": summary
             }
 
-    def plan(self, completed_action, next_step):
+    def plan(self, completed_action, next_step, original_request="", completed_tasks=""):
         """计划工具，用于生成继承计划"""
         # 这个工具的核心作用是结构化地返回计划，供command_processor捕获
         # 它返回一个特殊格式的字符串，以便于解析
         # 增强计划信息，包含更多上下文
         import time
         timestamp = time.strftime("%H:%M:%S")
-        return f"PLAN::{timestamp}::COMPLETED:{completed_action}::NEXT:{next_step}"
+        
+        # 构建增强的计划信息
+        plan_parts = [
+            f"PLAN::{timestamp}",
+            f"COMPLETED:{completed_action}",
+            f"NEXT:{next_step}"
+        ]
+        
+        # 添加原始需求标签
+        if original_request:
+            plan_parts.append(f"ORIGINAL_REQUEST:{original_request}")
+        
+        # 添加已完成任务标签
+        if completed_tasks:
+            plan_parts.append(f"COMPLETED_TASKS:{completed_tasks}")
+            
+        return "::".join(plan_parts)
 
-    def code_search(self, keyword):
-        """在项目中搜索代码"""
+    def code_search(self, query, path="."):
+        """搜索代码中的特定内容"""
         try:
-            print(f"\n{Fore.CYAN}🔍 正在搜索: {keyword}{Style.RESET_ALL}")
-            print("=" * 60)
-
-            # 定义忽略的目录和文件类型
-            ignore_dirs = {'.git', '__pycache__', 'dist', 'build', '.vscode', 'node_modules'}
-            ignore_exts = {'.pyc', '.pyo', '.pyd', '.so', '.o', '.a', '.dll', '.exe', '.log', '.tmp'}
-
+            import os
+            import re
+            
             results = []
-            for root, dirs, files in os.walk('.'):
-                # 过滤忽略的目录
-                dirs[:] = [d for d in dirs if d not in ignore_dirs]
-
+            search_pattern = re.compile(query, re.IGNORECASE)
+            
+            for root, dirs, files in os.walk(path):
+                # 跳过常见的忽略目录
+                dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ['__pycache__', 'node_modules']]
+                
                 for file in files:
-                    # 过滤忽略的文件类型
-                    if any(file.endswith(ext) for ext in ignore_exts):
-                        continue
-
-                    path = os.path.join(root, file)
-                    try:
-                        with open(path, 'r', encoding='utf-8', errors='ignore') as f:
-                            for i, line in enumerate(f, 1):
-                                if keyword in line:
-                                    results.append(f"{path}:{i}: {line.strip()}")
-                    except Exception:
-                        # 忽略无法读取的文件
-                        continue
-
-            if not results:
-                print(f"{Fore.YELLOW}没有找到包含 '{keyword}' 的文件{Style.RESET_ALL}")
-                return f"没有找到包含 '{keyword}' 的文件"
-
-            # 格式化并打印结果
-            result_str = "\n".join(results)
-            print(f"{Fore.GREEN}✅ 搜索完成，找到 {len(results)} 处匹配项{Style.RESET_ALL}")
-            print(result_str)
-            return f"搜索成功，找到 {len(results)} 处匹配项:\n{result_str}"
-
+                    if file.endswith(('.py', '.js', '.html', '.css', '.md', '.txt')):
+                        file_path = os.path.join(root, file)
+                        try:
+                            with open(file_path, 'r', encoding='utf-8') as f:
+                                content = f.read()
+                                if search_pattern.search(content):
+                                    # 找到匹配的行
+                                    lines = content.split('\n')
+                                    for i, line in enumerate(lines, 1):
+                                        if search_pattern.search(line):
+                                            results.append(f"{file_path}:{i}: {line.strip()}")
+                        except Exception:
+                            continue
+            
+            if results:
+                return f"搜索结果 (查询: {query}):\n" + "\n".join(results[:20])  # 限制结果数量
+            else:
+                return f"未找到匹配 '{query}' 的内容"
+                
         except Exception as e:
             return f"搜索失败: {str(e)}"
+
+    def list_directory(self, path=".", max_depth=10, show_hidden=False):
+        """列出目录结构，支持递归和深度控制"""
+        try:
+            import os
+            
+            def should_skip(name):
+                """判断是否应该跳过某个文件或目录"""
+                if not show_hidden and name.startswith('.'):
+                    return True
+                skip_dirs = {'__pycache__', 'node_modules', '.git', '.vscode', 'venv', 'env'}
+                return name in skip_dirs
+            
+            def get_tree_structure(current_path, current_depth=0, prefix=""):
+                """递归获取目录树结构"""
+                if current_depth > max_depth:
+                    return []
+                
+                items = []
+                try:
+                    entries = sorted(os.listdir(current_path))
+                    dirs = [e for e in entries if os.path.isdir(os.path.join(current_path, e)) and not should_skip(e)]
+                    files = [e for e in entries if os.path.isfile(os.path.join(current_path, e)) and not should_skip(e)]
+                
+                    # 先处理目录
+                    for i, dirname in enumerate(dirs):
+                        is_last_dir = (i == len(dirs) - 1) and len(files) == 0
+                        dir_prefix = "└── " if is_last_dir else "├── "
+                        items.append(f"{prefix}{dir_prefix}{dirname}/")
+                        
+                        # 递归处理子目录
+                        sub_path = os.path.join(current_path, dirname)
+                        next_prefix = prefix + ("    " if is_last_dir else "│   ")
+                        items.extend(get_tree_structure(sub_path, current_depth + 1, next_prefix))
+                    
+                    # 再处理文件
+                    for i, filename in enumerate(files):
+                        is_last = i == len(files) - 1
+                        file_prefix = "└── " if is_last else "├── "
+                        
+                        # 获取文件大小
+                        try:
+                            file_path = os.path.join(current_path, filename)
+                            size = os.path.getsize(file_path)
+                            if size < 1024:
+                                size_str = f"{size}B"
+                            elif size < 1024 * 1024:
+                                size_str = f"{size/1024:.1f}KB"
+                            else:
+                                size_str = f"{size/(1024*1024):.1f}MB"
+                            items.append(f"{prefix}{file_prefix}{filename} ({size_str})")
+                        except:
+                            items.append(f"{prefix}{file_prefix}{filename}")
+                            
+                except PermissionError:
+                    items.append(f"{prefix}[权限不足]")
+                except Exception as e:
+                    items.append(f"{prefix}[错误: {str(e)}]")
+                
+                return items
+            
+            # 获取绝对路径
+            abs_path = os.path.abspath(path)
+            if not os.path.exists(abs_path):
+                return f"路径不存在: {path}"
+            
+            if not os.path.isdir(abs_path):
+                return f"不是目录: {path}"
+            
+            # 生成目录树
+            result = [f"目录结构: {abs_path}"]
+            result.extend(get_tree_structure(abs_path))
+            
+            # 统计信息
+            total_lines = len(result) - 1
+            result.append(f"\n总共 {total_lines} 个项目 (最大深度: {max_depth})")
+            
+            return "\n".join(result)
+            
+        except Exception as e:
+            return f"列出目录失败: {str(e)}"
+
+    def end_guidance_start_fixing(self, analysis_summary):
+        """结束引导模式，开始修复bug"""
+        try:
+            # 检查是否在调试会话中
+            from .debug_session import debug_session
+            
+            if not debug_session.is_active:
+                return "当前没有活动的调试会话"
+            
+            # 结束调试会话
+            debug_session.end_session()
+            
+            # 返回特殊标记，让系统知道要切换到普通对话模式
+            return f"""
+GUIDANCE_ENDED_START_FIXING::
+分析总结: {analysis_summary}
+
+现在开始进入普通AI对话模式，基于以上分析开始修复bug。
+请继续提供具体的修复方案和代码实现。
+"""
+        except Exception as e:
+            return f"结束引导模式失败: {str(e)}"
 
     def mcp_call_tool(self, tool_name, arguments_json):
         """调用MCP工具"""
@@ -880,9 +1159,12 @@ class AIToolProcessor:
         if tool_name in ['write_file', 'delete_file', 'read_file']:
             actions = {'write_file': '写入文件', 'delete_file': '删除文件', 'read_file': '读取文件'}
             tool_summary = f"{actions[tool_name]}: {args[0]}"
-        elif tool_name == 'create_file' or tool_name == 'plan':
-            tool_summary = "" # 这些工具不生成摘要
-
+        elif tool_name == 'create_file':
+            tool_summary = "" # create_file工具自己显示预览
+        elif tool_name == 'plan':
+            tool_summary = "" # plan工具已在主流程中特殊处理
+        elif tool_name == 'show_todos':
+            tool_summary = "" # show_todos工具已在主流程中特殊处理
         elif tool_name == 'add_todo':
             title = args[0]
             tool_summary = f"[ add_todo ] ──── TODO ────\n  • {title}"

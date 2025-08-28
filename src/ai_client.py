@@ -136,13 +136,14 @@ class AsyncNetworkManager:
         self.executor.shutdown(wait=False)
 
 class AIClient:
-    """AI客户端类"""
-
+    """AI客户端类，负责与AI API交互"""
+    
     def __init__(self):
         self.config = load_config()
         self.api_url = DEFAULT_API_URL
         self.conversation_history = []
-        self.is_loading = False
+        self.max_history_length = 50
+        self.context_messages = []  # 存储上下文消息
         self.loading_thread = None
         self.network_manager = AsyncNetworkManager()
         
@@ -238,7 +239,7 @@ class AIClient:
                 {"role": "user", "content": user_input}
             ],
             "temperature": 0.7,
-            "max_tokens": 6000
+            "max_tokens": 12000
         }
 
         headers = {
@@ -259,16 +260,27 @@ class AIClient:
         # 决定使用哪个模型
         model_to_use = model_override if model_override else config.get('model', 'gpt-3.5-turbo')
 
+        # 构建消息列表，避免系统提示词重复
+        messages = [{"role": "system", "content": self.get_system_prompt()}]
+        
+        # 添加上下文消息
+        for context_msg in self.context_messages:
+            messages.append({"role": "system", "content": f"[上下文] {context_msg['title']}: {context_msg['content']}"})
+        
+        # 添加对话历史，但跳过系统消息避免重复
+        for msg in self.conversation_history:
+            if msg.get("role") != "system":
+                messages.append(msg)
+        
+        # 添加当前用户输入
+        messages.append({"role": "user", "content": user_input})
+        
         # 构建请求数据
         data = {
             "model": model_to_use,
-            "messages": [
-                {"role": "system", "content": self.get_system_prompt()},
-                *self.conversation_history,
-                {"role": "user", "content": user_input}
-            ],
+            "messages": messages,
             "temperature": 0.7,
-            "max_tokens": 6000,
+            "max_tokens": 12000,
             "stream": True  # 启用流式输出
         }
 
@@ -425,6 +437,9 @@ class AIClient:
             # 添加用户消息到上下文管理器
             self.context_manager.add_message("user", user_input, {"analysis": analysis})
             
+            # 更新TODO上下文
+            self.context_manager.update_todo_context()
+            
             # 如果需要规划，创建执行计划
             if analysis["requires_planning"]:
                 plan_result = self.agent_enhancer.create_execution_plan(user_input, analysis)
@@ -458,7 +473,7 @@ class AIClient:
                 "model": self.config.get("model", "gpt-3.5-turbo"),
                 "messages": messages,
                 "temperature": 0.7,
-                "max_tokens": 6000
+                "max_tokens": 12000
             }
 
             headers = {

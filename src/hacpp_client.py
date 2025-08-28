@@ -142,7 +142,7 @@ class HACPPAIClient:
                 'model': model_name,
                 'messages': messages,
                 'temperature': 0.3,
-                'max_tokens': 6000
+                'max_tokens': 12000
             }
 
             async with aiohttp.ClientSession() as session:
