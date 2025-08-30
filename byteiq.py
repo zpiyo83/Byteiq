@@ -183,8 +183,8 @@ def process_ai_conversation(user_input):
         token_animator.wait_upload_complete()
         print(f"{Fore.YELLOW}● 检查中...{Style.RESET_ALL}")
         
-        # 发送消息给AI（使用流式方法支持think模式）
-        ai_response = ai_client.send_message_streaming(user_input)
+        # 发送消息给AI（已集成思考动画和ESC监控）
+        ai_response = ai_client.send_message(user_input)
 
         # 检查是否在发送阶段被中断
         if is_task_interrupted():
@@ -247,8 +247,8 @@ def process_ai_conversation(user_input):
                     print(f"\n  • 检测到重复操作，停止处理避免无限循环")
                     break
 
-            # 显示AI的意图（过滤XML）- 只在首次显示，避免重复
-            if result['display_text'].strip() and iteration_count == 1:
+            # 显示AI的意图（过滤XML）
+            if result['display_text'].strip():
                 print(f"\n{theme_manager.format_tool_header('AI', result['display_text'])}")
 
             # 工具调用结果已在工具输出中显示，这里不再重复显示
@@ -417,12 +417,6 @@ def handle_special_commands(user_input):
         from src.command_processor import handle_init_command
         command_parts = user_input.split()
         handle_init_command(command_parts)
-        return True
-
-    # 深度思考模式命令
-    if user_input.lower() == '/think':
-        from src.commands import handle_think_command
-        handle_think_command()
         return True
 
     return False

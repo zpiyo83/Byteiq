@@ -1,0 +1,48 @@
+{
+  "conversation_history": [
+    {
+      "role": "user",
+      "content": "hi",
+      "timestamp": 1756549612.0382102,
+      "tokens": 1,
+      "metadata": {
+        "analysis": {
+          "complexity": "medium",
+          "task_type": "general",
+          "requires_planning": false,
+          "thinking_mode": "think",
+          "estimated_steps": 3
+        }
+      }
+    },
+    {
+      "role": "assistant",
+      "content": "Hello! How can I assist you today?",
+      "timestamp": 1756549614.4565618,
+      "tokens": 9,
+      "metadata": {}
+    }
+  ],
+  "project_context": {
+    "original_request": {
+      "content": "hi",
+      "priority": "critical",
+      "timestamp": 1756549612.0382812,
+      "tokens": 1
+    },
+    "current_todos": {
+      "content": "📋📝 ; 📋📝 ; 📋📝 ",
+      "priority": "high",
+      "timestamp": 1756549612.0387125,
+      "tokens": 21
+    },
+    "project_structure": {
+      "content": "CLAUDE.md\nMANIFEST.in\nREADME.md\nVERSION.md\n__pycache__/\n  byteiq.cpython-313.pyc\n  forgeai.cpython-313.pyc\n  test_refusal_prompts.cpython-313-pytest-8.4.1.pyc\naugment.md\nauto_stop_mcp_servers.py\nbuild/\n  bdist.win-amd64/\n  lib/\n    byteiq.py\n    src/\nbuild_package.py\nbyteiq.bat\nbyteiq.egg-info/\n  PKG-INFO\n  SOURCES.txt\n  dependency_links.txt\n  entry_points.txt\n  not-zip-safe\n  requires.txt\n  top_level.txt\nbyteiq.py\ncontexts/\ndebug_init.py\ndebug_settings.json\ndist/\n  byteiq-2.0.3-py3-none-any.whl\n  byteiq-3.1.1-py3-none-any.whl\nfinal_upload_guide.md\npyproject.toml\nrebuild_and_upload.py\nrequirements.txt\nsetup.py\nsimple_setup.py\nsrc/\n  __init__.py\n  __pycache__/\n    __init__.cpython-313.pyc\n    agent_enhancer.cpython-313.pyc\n    ai_client.cpython-313.pyc\n    ai_tools.cpython-313.pyc\n    auto_todo.cpython-313.pyc\n    byteiq_config.cpython-313.pyc\n    chat_manager.cpython-313.pyc\n    command_processor.cpython-313.pyc\n    commands.cpython-313.pyc\n    compression.cpython-313.pyc\n    config.cpython-313.pyc\n    context_loader.cpython-313.pyc\n    context_manager.cpython-313.pyc\n    debug_config.cpython-313.pyc\n    debug_session.cpython-313.pyc\n    file_utils.cpython-313.pyc\n    guide_ai.cpython-313.pyc\n    hacpp_client.cpython-313.pyc\n    input_handler.cpython-313.pyc\n    keyboard_handler.cpython-313.pyc\n    lazy_loader.cpython-313.pyc\n    mcp_client.cpython-313.pyc\n    mcp_config.cpython-313.pyc\n    modes.cpython-313.pyc\n    output_monitor.cpython-313.pyc\n    performance_optimizer.cpython-313.pyc\n    project_analyzer.cpython-313.pyc\n    project_doc_analyzer.cpython-313.pyc\n    project_memory.cpython-313.pyc\n    prompt_templates.cpython-313.pyc\n    theme.cpython-313.pyc\n    thinking_animation.cpython-313.pyc\n    todo_manager.cpython-313.pyc\n    todo_renderer.cpython-313.pyc\n    token_animator.cpython-313.pyc\n    token_indicator.cpython-313.pyc\n    ui.cpython-313.pyc\n  agent_enhancer.py\n  ai_client.py\n  ai_tools.py\n  auto_todo.py\n  byteiq_config.py\n  chat_manager.py\n  command_processor.py\n  commands.py\n  compression.py\n  config.py\n  context_manager.py\n  debug_config.py\n  debug_session.py\n  file_utils.py\n  guide_ai.py\n  hacpp_client.py\n  input_handler.py\n  keyboard_handler.py\n  lazy_loader.py\n  mcp_client.py\n  mcp_config.py\n  modes.py\n  output_monitor.py\n  performance_monitor.py\n  performance_optimizer.py\n  project_analyzer.py\n  project_doc_analyzer.py\n  project_memory.py\n  prompt_templates.py\n  theme.py\n  thinking_animation.py\n  todo_manager.py\n  todo_renderer.py\n  token_animator.py\n  ui.py\ntemplates/\ntest_doc_command.py\ntest_init_command.py\ntest_tool_rendering.py\ntest_upload.py\ntodo_data.json\nupload_pypi.bat\n",
+      "priority": "high",
+      "timestamp": 1756549612.043925,
+      "tokens": 819
+    }
+  },
+  "session_summary": "",
+  "timestamp": 1756549614.4572349
+}

@@ -12,7 +12,7 @@ def get_available_commands():
     return [
         "/help", "/status", "/clear", "/pwd", "/ls", "/cd", "/exit",
         "/s", "/mode", "/clear-history", "/todo", "/todos", "/compact",
-        "/hacpp", "/fix", "/analyze", "/chat", "/export", "/init", "/think"
+        "/hacpp", "/fix", "/analyze", "/chat", "/export", "/init"
     ]
 
 def get_command_descriptions():
@@ -36,8 +36,7 @@ def get_command_descriptions():
         "/analyze": "分析项目并生成BYTEIQ.md配置文件",
         "/chat": "聊天上下文管理 (save/load/delete)",
         "/export": "导出上下文到当前目录",
-        "/init": "超大型项目分析模式 - 生成完整项目文档",
-        "/think": "切换深度思考模式"
+        "/init": "超大型项目分析模式 - 生成完整项目文档"
     }
 
 def filter_commands(partial_input):
@@ -84,7 +83,6 @@ def show_help():
   {Fore.WHITE}/chat delete{Style.RESET_ALL}  - 交互式删除上下文
   {Fore.WHITE}/export{Style.RESET_ALL}       - 导出上下文到当前目录
   {Fore.WHITE}/fix{Style.RESET_ALL}          - AI辅助调试 (bug/status/end)
-  {Fore.WHITE}/think{Style.RESET_ALL}        - 切换深度思考模式
 
 {Fore.MAGENTA}HACPP模式 (双AI协作):{Style.RESET_ALL}
   {Fore.WHITE}/HACPP{Style.RESET_ALL}        - 激活HACPP模式（需要测试码）
@@ -360,23 +358,6 @@ def show_todo_stats():
     if stats['total'] > 0:
         completion_rate = (stats['completed'] / stats['total']) * 100
         print(f"完成率: {Fore.GREEN}{completion_rate:.1f}%{Style.RESET_ALL}")
-
-def handle_think_command():
-    """处理/think命令"""
-    from .config import toggle_think_mode, get_think_mode
-    
-    new_status = toggle_think_mode()
-    status_text = "开启" if new_status else "关闭"
-    
-    print(f"\n{Fore.CYAN}🧠 深度思考模式已{status_text}{Style.RESET_ALL}")
-    
-    if new_status:
-        print(f"{Fore.YELLOW}说明:{Style.RESET_ALL}")
-        print(f"  • AI将显示思考过程（灰色字体）")
-        print(f"  • 思考内容不参与工具调用")
-        print(f"  • 再次输入 /think 可关闭")
-    else:
-        print(f"{Fore.YELLOW}深度思考模式已关闭{Style.RESET_ALL}")
 
 def show_todos():
     """显示TODO列表"""
