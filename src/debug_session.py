@@ -16,6 +16,7 @@ class DebugSession:
         self.guide_model = None
         self.session_step = 0
         self.max_steps = 20
+        self.esc_pressed_once = False  # ESC键按下状态
         self.shared_context = {
             'project_info': '',
             'analysis_history': [],
@@ -30,6 +31,11 @@ class DebugSession:
         self.bug_description = bug_description
         self.guide_model = guide_model_name
         self.session_step = 0
+        self.esc_pressed_once = False  # 重置ESC状态
+        
+        # 设置键盘监控
+        from .keyboard_handler import start_task_monitoring
+        start_task_monitoring(self._handle_esc_interrupt)
         
         # 设置引导者AI模型
         guide_ai.set_guide_model(guide_model_name)
@@ -39,6 +45,7 @@ class DebugSession:
         print(f"{Fore.MAGENTA}Bug描述: {bug_description[:50]}...{Style.RESET_ALL}")
         print(f"{Fore.MAGENTA}引导者AI: {guide_model_name}{Style.RESET_ALL}")
         print(f"{Fore.MAGENTA}{'='*60}{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}💡 提示: 按ESC键查看提示词，再按ESC键退出调试会话{Style.RESET_ALL}")
         
         # 获取项目上下文并保存到共享上下文
         project_context = self._get_project_context()
@@ -211,10 +218,46 @@ class DebugSession:
         except Exception as e:
             return f"无法获取项目上下文: {str(e)}"
     
+    def _handle_esc_interrupt(self):
+        """处理ESC键中断"""
+        if not self.esc_pressed_once:
+            # 第一次按ESC：显示当前使用的提示词
+            self._show_current_prompt()
+            self.esc_pressed_once = True
+            print(f"\n{Fore.YELLOW}💡 再次按ESC键退出调试会话{Style.RESET_ALL}")
+        else:
+            # 第二次按ESC：退出调试会话
+            print(f"\n{Fore.YELLOW}🚪 用户请求退出调试会话{Style.RESET_ALL}")
+            self.end_session()
+
+    def _show_current_prompt(self):
+        """显示当前使用的Fix Bug提示词"""
+        try:
+            from .prompt_templates import get_fix_bug_prompt
+            from .config import load_config
+            
+            config = load_config()
+            model_strength = config.get('model_strength', 'claude')
+            fix_bug_prompt = get_fix_bug_prompt(model_strength)
+            
+            print(f"\n{Fore.CYAN}{'='*60}{Style.RESET_ALL}")
+            print(f"{Fore.CYAN}当前Fix Bug模式提示词 ({model_strength}){Style.RESET_ALL}")
+            print(f"{Fore.CYAN}{'='*60}{Style.RESET_ALL}")
+            print(f"{Fore.WHITE}{fix_bug_prompt[:1000]}...{Style.RESET_ALL}")
+            print(f"{Fore.CYAN}{'='*60}{Style.RESET_ALL}")
+            
+        except Exception as e:
+            print(f"{Fore.RED}显示提示词失败: {str(e)}{Style.RESET_ALL}")
+
     def end_session(self):
         """结束调试会话"""
         if self.is_active:
             self.is_active = False
+            
+            # 停止键盘监控
+            from .keyboard_handler import stop_task_monitoring
+            stop_task_monitoring()
+            
             guide_ai.clear_session()
             print(f"\n{Fore.MAGENTA}🔧 AI辅助调试会话已结束{Style.RESET_ALL}")
     

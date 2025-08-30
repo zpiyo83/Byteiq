@@ -184,6 +184,61 @@ def set_theme_interactive():
     else:
         print(f"{Fore.YELLOW}无效选择{Style.RESET_ALL}")
 
+def set_think_mode_interactive():
+    """交互式设置深度思考模式"""
+    cfg = load_config()
+    current_think = cfg.get("think_mode", False)
+    
+    print(f"\n{Fore.CYAN}深度思考模式设置{Style.RESET_ALL}")
+    print(f"当前状态: {'开启' if current_think else '关闭'}")
+    print(f"\n{Fore.YELLOW}说明:{Style.RESET_ALL}")
+    print(f"  • 开启后，AI将显示思考过程（灰色字体）")
+    print(f"  • 思考内容不参与工具调用，仅供参考")
+    print(f"  • 可使用 /think 命令快速切换")
+    
+    print(f"\n{Fore.CYAN}选项:{Style.RESET_ALL}")
+    print(f"  1 - 开启深度思考")
+    print(f"  2 - 关闭深度思考")
+    print(f"  回车 - 保持不变")
+    
+    choice = input(f"\n{Fore.WHITE}请选择 (1-2) > {Style.RESET_ALL}").strip()
+    
+    if choice == "1":
+        cfg["think_mode"] = True
+        if save_config(cfg):
+            print(f"{Fore.GREEN}✓ 深度思考模式已开启{Style.RESET_ALL}")
+        else:
+            print(f"{Fore.RED}✗ 设置保存失败{Style.RESET_ALL}")
+    elif choice == "2":
+        cfg["think_mode"] = False
+        if save_config(cfg):
+            print(f"{Fore.GREEN}✓ 深度思考模式已关闭{Style.RESET_ALL}")
+        else:
+            print(f"{Fore.RED}✗ 设置保存失败{Style.RESET_ALL}")
+    elif choice == "":
+        print(f"{Fore.CYAN}深度思考模式设置未修改{Style.RESET_ALL}")
+    else:
+        print(f"{Fore.YELLOW}无效选择{Style.RESET_ALL}")
+
+def get_think_mode():
+    """获取深度思考模式状态"""
+    cfg = load_config()
+    return cfg.get("think_mode", False)
+
+def toggle_think_mode():
+    """切换深度思考模式"""
+    cfg = load_config()
+    current = cfg.get("think_mode", False)
+    cfg["think_mode"] = not current
+    
+    if save_config(cfg):
+        status = "开启" if not current else "关闭"
+        print(f"{Fore.GREEN}✓ 深度思考模式已{status}{Style.RESET_ALL}")
+        return not current
+    else:
+        print(f"{Fore.RED}✗ 设置保存失败{Style.RESET_ALL}")
+        return current
+
 def show_settings():
     """显示设置菜单"""
     from .theme import theme_manager
@@ -195,6 +250,7 @@ def show_settings():
         model_status = cfg.get("model", "gpt-3.5-turbo")
         prompt_strength_status = cfg.get("prompt_strength", "claude")
         theme_status = cfg.get("theme", "default")
+        think_status = "开启" if cfg.get("think_mode", False) else "关闭"
 
         print(f"\n{Fore.LIGHTCYAN_EX}ByteIQ 设置{Style.RESET_ALL}")
         print(f"{'='*60}")
@@ -203,6 +259,7 @@ def show_settings():
         print(f"AI模型: {model_status}")
         print(f"提示词强度: {prompt_strength_status}")
         print(f"主题: {theme_status}")
+        print(f"深度思考: {think_status}")
         print(f"配置文件: {CONFIG_PATH}")
         print(f"{'='*60}")
         print(f"\n{Fore.CYAN}请选择操作:{Style.RESET_ALL}")
@@ -211,9 +268,10 @@ def show_settings():
         print(f"  3 - 设置模型")
         print(f"  4 - 设置提示词强度")
         print(f"  5 - 设置主题")
-        print(f"  6 - 退出设置")
+        print(f"  6 - 设置深度思考")
+        print(f"  7 - 退出设置")
 
-        choice = input(f"\n{Fore.WHITE}请输入选项 (1-6) > {Style.RESET_ALL}").strip()
+        choice = input(f"\n{Fore.WHITE}请输入选项 (1-7) > {Style.RESET_ALL}").strip()
 
         if choice == "1":
             set_language_interactive()
@@ -226,8 +284,10 @@ def show_settings():
         elif choice == "5":
             set_theme_interactive()
         elif choice == "6":
+            set_think_mode_interactive()
+        elif choice == "7":
             print(f"{Fore.CYAN}退出设置{Style.RESET_ALL}")
             break
         else:
-            print(f"{Fore.YELLOW}无效选择，请输入 1-6{Style.RESET_ALL}")
+            print(f"{Fore.YELLOW}无效选择，请输入 1-7{Style.RESET_ALL}")
             input(f"{Fore.CYAN}按回车继续...{Style.RESET_ALL}")

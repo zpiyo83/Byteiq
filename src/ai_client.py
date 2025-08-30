@@ -252,6 +252,8 @@ class AIClient:
 
     def send_message_streaming(self, user_input, include_structure=True, model_override=None, is_continuation=False):
         """流式发送消息给AI，实时显示响应"""
+        from .config import get_think_mode
+        
         config = load_config()
 
         if not config.get('api_key'):
@@ -261,7 +263,13 @@ class AIClient:
         model_to_use = model_override if model_override else config.get('model', 'gpt-3.5-turbo')
 
         # 构建消息列表，避免系统提示词重复
-        messages = [{"role": "system", "content": self.get_system_prompt()}]
+        system_prompt = self.get_system_prompt()
+        
+        # 如果开启了深度思考模式，增强系统提示词
+        if get_think_mode():
+            system_prompt += "\n\n# 深度思考模式\n当你需要深度思考时，请使用 <think> 标签包围你的思考过程。思考内容将以灰色字体显示，不参与工具调用。\n\n示例：\n<think>\n让我分析一下这个问题...\n需要考虑以下几个方面：\n1. ...\n2. ...\n</think>\n\n然后给出你的正式回答。"
+        
+        messages = [{"role": "system", "content": system_prompt}]
         
         # 添加上下文消息
         for context_msg in self.context_messages:
@@ -305,6 +313,8 @@ class AIClient:
                 return f"API请求失败: {response.status_code} - {response.text}"
 
             full_response = ""
+            in_think_block = False
+            think_content = ""
             
             # 逐行处理流式响应
             for line in response.iter_lines():
@@ -328,16 +338,72 @@ class AIClient:
                                 delta = chunk_data['choices'][0].get('delta', {})
                                 if 'content' in delta:
                                     content = delta['content']
-                                    print(content, end="", flush=True)
                                     full_response += content
+                                    
+                                    # 处理think标签
+                                    if get_think_mode():
+                                        # 检查是否进入think块
+                                        if '<think>' in content:
+                                            in_think_block = True
+                                            # 处理可能在同一chunk中的开始标签
+                                            parts = content.split('<think>')
+                                            if len(parts) > 1:
+                                                # 输出开始标签前的内容
+                                                if parts[0]:
+                                                    print(parts[0], end="", flush=True)
+                                                # 显示think标题
+                                                print(f"\n{Fore.LIGHTBLACK_EX}💭 AI思考过程:{Style.RESET_ALL}")
+                                                print(f"{Fore.LIGHTBLACK_EX}", end="", flush=True)
+                                                # 处理开始标签后的内容
+                                                think_content = parts[1]
+                                                if '</think>' in think_content:
+                                                    end_parts = think_content.split('</think>')
+                                                    print(end_parts[0], end="", flush=True)
+                                                    print(f"{Style.RESET_ALL}", end="", flush=True)
+                                                    if end_parts[1]:
+                                                        print(end_parts[1], end="", flush=True)
+                                                    in_think_block = False
+                                                    think_content = ""
+                                                else:
+                                                    print(think_content, end="", flush=True)
+                                            continue
+                                        
+                                        # 检查是否退出think块
+                                        if '</think>' in content and in_think_block:
+                                            parts = content.split('</think>')
+                                            # 输出结束标签前的内容（灰色）
+                                            print(parts[0], end="", flush=True)
+                                            print(f"{Style.RESET_ALL}", end="", flush=True)
+                                            # 输出结束标签后的内容（正常颜色）
+                                            if parts[1]:
+                                                print(parts[1], end="", flush=True)
+                                            in_think_block = False
+                                            think_content = ""
+                                            continue
+                                        
+                                        # 如果在think块中，用灰色显示
+                                        if in_think_block:
+                                            print(content, end="", flush=True)
+                                        else:
+                                            print(content, end="", flush=True)
+                                    else:
+                                        # 非think模式，正常显示
+                                        print(content, end="", flush=True)
                         except json.JSONDecodeError:
                             continue
             
             print()  # 换行
             
+            # 处理think标签，从对话历史中移除think内容
+            clean_response = full_response
+            if get_think_mode():
+                import re
+                # 移除think标签及其内容，确保不参与工具调用
+                clean_response = re.sub(r'<think>.*?</think>', '', full_response, flags=re.DOTALL)
+            
             # 添加到对话历史
             self.conversation_history.append({"role": "user", "content": user_input})
-            self.conversation_history.append({"role": "assistant", "content": full_response})
+            self.conversation_history.append({"role": "assistant", "content": clean_response})
 
             # 限制历史长度，但保留更多上下文（从10增加到20）
             if len(self.conversation_history) > 20:
@@ -458,6 +524,12 @@ class AIClient:
 
             # 获取系统提示词并根据思考模式增强
             base_prompt = self.get_system_prompt()
+            
+            # 如果开启了深度思考模式，增强系统提示词
+            from .config import get_think_mode
+            if get_think_mode():
+                base_prompt += "\n\n# 深度思考模式\n当你需要深度思考时，请使用 <think> 标签包围你的思考过程。思考内容将以灰色字体显示，不参与工具调用。\n\n示例：\n<think>\n让我分析一下这个问题...\n需要考虑以下几个方面：\n1. ...\n2. ...\n</think>\n\n然后给出你的正式回答。"
+            
             thinking_mode = analysis["thinking_mode"]
             enhanced_prompt = self.agent_enhancer.enhance_prompt_with_thinking(base_prompt, thinking_mode)
 
