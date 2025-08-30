@@ -47,25 +47,14 @@ class TodoRenderer:
         """渲染完整的TODO列表"""
         output = []
         
-        # 标题
-        output.append(f"\n{Fore.LIGHTCYAN_EX}{'='*60}{Style.RESET_ALL}")
-        output.append(f"{Fore.LIGHTCYAN_EX}TODO 任务列表{Style.RESET_ALL}")
-        output.append(f"{Fore.LIGHTCYAN_EX}{'='*60}{Style.RESET_ALL}")
-        
-        # 统计信息
-        stats = self.todo_manager.get_stats()
-        output.append(f"\n{Fore.WHITE}统计: {Style.RESET_ALL}")
-        output.append(f"   总计: {stats['total']} | "
-                     f"{Fore.YELLOW}待办: {stats['pending']}{Style.RESET_ALL} | "
-                     f"{Fore.CYAN}进行中: {stats['in_progress']}{Style.RESET_ALL} | "
-                     f"{Fore.GREEN}已完成: {stats['completed']}{Style.RESET_ALL} | "
-                     f"{Fore.RED}已取消: {stats['cancelled']}{Style.RESET_ALL}")
+        # 简洁标题
+        output.append("[ show ] —— TODO ——")
         
         # 获取根级任务
         root_todos = self.todo_manager.get_root_todos()
         
         if not root_todos:
-            output.append(f"\n{Fore.LIGHTBLACK_EX}暂无任务{Style.RESET_ALL}")
+            output.append("  暂无任务")
             return '\n'.join(output)
         
         # 过滤任务
@@ -75,26 +64,35 @@ class TodoRenderer:
         if not show_completed:
             root_todos = [todo for todo in root_todos if todo.status != 'completed']
         
-        # 按优先级和状态排序
-        priority_order = {'urgent': 0, 'high': 1, 'medium': 2, 'low': 3}
-        status_order = {'in_progress': 0, 'pending': 1, 'completed': 2, 'cancelled': 3}
+        # 按优先级排序 (数字越大优先级越低)
+        priority_order = {'urgent': 1, 'high': 2, 'medium': 3, 'low': 4}
         
-        root_todos.sort(key=lambda x: (status_order.get(x.status, 4), 
-                                      priority_order.get(x.priority, 4)))
-        
-        output.append(f"\n{Fore.WHITE}任务列表:{Style.RESET_ALL}")
+        root_todos.sort(key=lambda x: priority_order.get(x.priority, 5))
         
         # 渲染每个根级任务
-        for i, todo in enumerate(root_todos, 1):
-            output.append(self._render_todo_item(todo, level=0, index=i))
+        for todo in root_todos:
+            output.append(self._render_simple_todo_item(todo))
             
             # 渲染子任务
             subtodos = self.todo_manager.get_subtodos(todo.id)
-            for j, subtodo in enumerate(subtodos, 1):
-                output.append(self._render_todo_item(subtodo, level=1, index=j, is_subtask=True))
+            for subtodo in subtodos:
+                output.append(self._render_simple_todo_item(subtodo, is_subtask=True))
         
-        output.append(f"\n{Fore.LIGHTCYAN_EX}{'='*60}{Style.RESET_ALL}")
         return '\n'.join(output)
+    
+    def _render_simple_todo_item(self, todo: TodoItem, is_subtask: bool = False) -> str:
+        """渲染简洁格式的TODO项目"""
+        # 完成状态：X表示完成，空格表示未完成
+        status_mark = "X" if todo.status == 'completed' else " "
+        
+        # 优先级数字：数字越大优先级越低
+        priority_num = {'urgent': 1, 'high': 2, 'medium': 3, 'low': 4}.get(todo.priority, 5)
+        
+        # 缩进处理
+        indent = "    " if is_subtask else "  "
+        
+        # 构建输出
+        return f"{indent}[{status_mark}]{todo.title} {priority_num}"
     
     def _render_todo_item(self, todo: TodoItem, level: int = 0, index: int = 1, is_subtask: bool = False) -> str:
         """渲染单个TODO项目"""

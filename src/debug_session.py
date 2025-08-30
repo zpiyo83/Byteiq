@@ -73,9 +73,20 @@ class DebugSession:
             print(f"\n{Fore.YELLOW}📍 调试步骤 {self.session_step}/{self.max_steps}{Style.RESET_ALL}")
             print(f"{Fore.CYAN}主AI正在分析...{Style.RESET_ALL}")
             
-            # 主AI响应
+            # 主AI响应 - 使用Fix Bug专用提示词
             try:
-                main_ai_response = ai_client.send_message_streaming(prompt)
+                # 为fix bug模式设置专用提示词
+                from .prompt_templates import get_fix_bug_prompt
+                from .config import load_config
+                
+                config = load_config()
+                model_strength = config.get('model_strength', 'claude')
+                fix_bug_prompt = get_fix_bug_prompt(model_strength)
+                
+                # 将引导内容与fix bug提示词结合
+                combined_prompt = f"{fix_bug_prompt}\n\n# CURRENT TASK\n{prompt}"
+                
+                main_ai_response = ai_client.send_message_streaming(combined_prompt)
                 
                 if not main_ai_response:
                     print(f"{Fore.RED}❌ 主AI无响应{Style.RESET_ALL}")
@@ -90,9 +101,19 @@ class DebugSession:
                 print(f"{Fore.RED}❌ 主AI调用失败: {str(e)}{Style.RESET_ALL}")
                 break
             
-            # 处理主AI的工具调用
+            # 处理主AI的工具调用 - 确保有完整工具权限
             try:
+                # 临时禁用HACPP模式检查，确保主AI有完整工具权限
+                from .modes import hacpp_mode
+                original_hacpp_state = hacpp_mode.is_hacpp_active()
+                if original_hacpp_state:
+                    hacpp_mode.deactivate()
+                
                 tool_result = ai_tool_processor.process_response(main_ai_response)
+                
+                # 恢复原始HACPP状态
+                if original_hacpp_state:
+                    hacpp_mode.activate()
                 
                 # 更新共享上下文
                 self._update_shared_context_from_tools(tool_result, main_ai_response)

@@ -54,15 +54,13 @@ def set_language_interactive():
     print(f"\n{Fore.LIGHTCYAN_EX}选择语言 / Choose Language{Style.RESET_ALL}")
     print(f"  1 - 中文 (zh-CN)")
     print(f"  2 - English (en-US)")
-    print(f"  3 - 日本語 (ja-JP)")
     print(f"  回车 - 保持不变")
 
     choice = input(f"\n{Fore.WHITE}请选择语言 > {Style.RESET_ALL}").strip()
 
     lang_map = {
         "1": "zh-CN",
-        "2": "en-US",
-        "3": "ja-JP"
+        "2": "en-US"
     }
 
     if choice in lang_map:
@@ -129,15 +127,15 @@ def process_ai_conversation(user_input):
         return
     
     try:
-        # 自动创建TODO任务
-        try:
-            from src.auto_todo import auto_todo_manager
-            task_id = auto_todo_manager.create_todo_from_request(user_input)
-            if task_id:
-                print(f"📝 已自动创建任务: {auto_todo_manager.active_tasks[task_id]['title']}")
-        except Exception as e:
-            # 忽略自动TODO创建过程中的任何错误，不显示错误信息
-            pass
+        # 自动创建TODO任务 - 已禁用
+        # try:
+        #     from src.auto_todo import auto_todo_manager
+        #     task_id = auto_todo_manager.create_todo_from_request(user_input)
+        #     if task_id:
+        #         print(f"📝 已自动创建任务: {auto_todo_manager.active_tasks[task_id]['title']}")
+        # except Exception as e:
+        #     # 忽略自动TODO创建过程中的任何错误，不显示错误信息
+        #     pass
         
         # 使用延迟加载器获取AI客户端
         from src.lazy_loader import lazy_loader
@@ -412,6 +410,13 @@ def handle_special_commands(user_input):
     # 导出上下文命令
     if user_input.lower() in ['/export']:
         handle_export_command()
+        return True
+
+    # 超大型项目分析命令
+    if user_input.lower().startswith('/init'):
+        from src.command_processor import handle_init_command
+        command_parts = user_input.split()
+        handle_init_command(command_parts)
         return True
 
     return False

@@ -13,6 +13,29 @@ from .ai_client import ai_client
 from .ai_tools import ai_tool_processor
 from .output_monitor import start_output_monitoring, stop_output_monitoring, enable_print_monitoring
 from .debug_session import debug_session
+from .project_doc_analyzer import project_doc_analyzer
+from .context_manager import context_manager
+
+# 在主AI系统提示词中添加项目分析文档提示
+def get_project_analysis_context():
+    """获取项目分析文档上下文提示"""
+    import os
+    
+    current_dir = os.getcwd()
+    project_name = os.path.basename(current_dir)
+    docs_folder = os.path.join(current_dir, f"{project_name}_analysis_docs")
+    
+    if os.path.exists(docs_folder) and os.path.isdir(docs_folder):
+        md_files = [f for f in os.listdir(docs_folder) if f.endswith('.md')]
+        if md_files:
+            return f"""
+
+# 📁 项目分析文档可用
+当前项目已有分析文档（{len(md_files)}个文件）位于: {docs_folder}
+当用户咨询项目结构、函数、类或变量时，优先建议查看这些分析文档。
+每个文件都有对应的.md文档，包含详细的函数、类、变量分析。
+"""
+    return ""
 
 def process_ai_conversation(user_input):
     """处理AI对话，包含继承计划逻辑"""
@@ -33,6 +56,14 @@ def process_ai_conversation(user_input):
 请分析此需求并制定详细计划。使用 `read_file` 和 `code_search` 收集信息。完成后，**必须调用 `<task_complete>` 工具**来移交计划。
 """
 
+    # 检查是否有项目分析文档可用
+    _check_and_suggest_analysis_docs()
+    
+    # 在AI系统提示词中添加项目分析上下文
+    analysis_context = get_project_analysis_context()
+    if analysis_context:
+        user_input += analysis_context
+    
     print(f"{Fore.CYAN}AI助手正在处理您的请求...{Style.RESET_ALL}")
     enable_print_monitoring()
 
@@ -207,6 +238,168 @@ def handle_fix_command(command_parts):
         print(f"{Fore.RED}未知的fix子命令: {subcommand}{Style.RESET_ALL}")
         print(f"{Fore.CYAN}可用命令: bug, status, end{Style.RESET_ALL}")
 
+def handle_init_command(command_parts):
+    """处理/init命令 - 超大型项目分析模式"""
+    if len(command_parts) == 1:
+        # 只输入了 /init，显示帮助和启动选项
+        print(f"{Fore.CYAN}超大型项目分析模式{Style.RESET_ALL}")
+        print(f"{Fore.WHITE}功能: 分析项目中所有文件，生成完整的接口文档和变量文档{Style.RESET_ALL}")
+        print()
+        print(f"{Fore.CYAN}可用命令:{Style.RESET_ALL}")
+        print(f"  /init start [路径]   - 开始分析项目（默认当前目录）")
+        print(f"  /init status        - 查看分析状态")
+        print(f"  /init stop          - 停止分析")
+        print()
+        
+        # 检查当前状态
+        status = project_doc_analyzer.get_status()
+        if status['is_active']:
+            print(f"{Fore.YELLOW}⚠️ 分析模式正在运行中{Style.RESET_ALL}")
+            print(f"  项目路径: {status['project_path']}")
+            print(f"  分析进度: {status['progress']}")
+        else:
+            print(f"{Fore.GREEN}💡 提示: 使用 '/init start' 开始分析当前目录{Style.RESET_ALL}")
+        return
+
+    subcommand = command_parts[1].lower()
+    
+    if subcommand == 'start':
+        # /init start 命令 - 开始项目分析
+        if project_doc_analyzer.is_active:
+            print(f"{Fore.YELLOW}⚠️ 项目分析模式已在运行中{Style.RESET_ALL}")
+            status = project_doc_analyzer.get_status()
+            print(f"  项目路径: {status['project_path']}")
+            print(f"  分析进度: {status['progress']}")
+            return
+        
+        # 获取项目路径
+        project_path = None
+        if len(command_parts) > 2:
+            project_path = command_parts[2]
+        
+        # 确认开始分析
+        if not project_path:
+            project_path = os.getcwd()
+            
+        print(f"{Fore.CYAN}准备分析项目: {project_path}{Style.RESET_ALL}")
+        confirm = input(f"{Fore.YELLOW}确认开始分析？这可能需要较长时间 (y/N): {Style.RESET_ALL}").strip().lower()
+        
+        if confirm == 'y':
+            print(f"\n{Fore.CYAN}正在启动超大型项目分析模式...{Style.RESET_ALL}")
+            success = project_doc_analyzer.start_analysis(project_path)
+            
+            if not success:
+                print(f"{Fore.RED}❌ 项目分析启动失败{Style.RESET_ALL}")
+        else:
+            print(f"{Fore.YELLOW}已取消分析{Style.RESET_ALL}")
+    
+    elif subcommand == 'status':
+        # /init status 命令 - 显示分析状态
+        status = project_doc_analyzer.get_status()
+        print(f"{Fore.CYAN}项目分析状态:{Style.RESET_ALL}")
+        
+        if status['is_active']:
+            print(f"  状态: {Fore.GREEN}运行中{Style.RESET_ALL}")
+            print(f"  项目路径: {status['project_path']}")
+            print(f"  分析进度: {status['progress']}")
+            print(f"  总文件数: {status['total_files']}")
+            print(f"  已处理: {status['processed_files']}")
+        else:
+            print(f"  状态: {Fore.YELLOW}未运行{Style.RESET_ALL}")
+    
+    elif subcommand == 'stop':
+        # /init stop 命令 - 停止分析
+        if project_doc_analyzer.is_active:
+            project_doc_analyzer.stop_analysis()
+            print(f"{Fore.GREEN}✓ 项目分析已停止{Style.RESET_ALL}")
+        else:
+            print(f"{Fore.YELLOW}没有正在运行的分析任务{Style.RESET_ALL}")
+    
+    else:
+        print(f"{Fore.RED}未知的init命令: {subcommand}{Style.RESET_ALL}")
+        print(f"{Fore.CYAN}可用命令: start, status, stop{Style.RESET_ALL}")
+
+def handle_context_command(command_parts):
+    """处理/context命令 - 上下文管理"""
+    if len(command_parts) == 1:
+        # 只输入了 /context，显示状态
+        stats = context_manager.get_context_stats()
+        print(f"{Fore.CYAN}上下文状态:{Style.RESET_ALL}")
+        print(f"  Token使用: {stats['total_tokens']:,} / {stats['max_tokens']:,} ({stats['utilization_percent']}%)")
+        print(f"  对话消息: {stats['conversation_messages']}")
+        print(f"  项目上下文: {stats['project_contexts']}")
+        print(f"  代码上下文: {stats['code_contexts']}")
+        print(f"  会话摘要: {'是' if stats['has_summary'] else '否'}")
+        print()
+        print(f"{Fore.CYAN}可用命令:{Style.RESET_ALL}")
+        print(f"  /context set <tokens>   - 设置最大token数")
+        print(f"  /context status         - 显示详细状态")
+        print(f"  /context clear          - 清除所有上下文")
+        print(f"  /context save [文件]    - 保存上下文到文件")
+        print(f"  /context load [文件]    - 从文件加载上下文")
+        return
+
+    subcommand = command_parts[1].lower()
+    
+    if subcommand == 'set':
+        # /context set <tokens> 命令
+        if len(command_parts) < 3:
+            print(f"{Fore.RED}请指定token数量，例如: /context set 20000{Style.RESET_ALL}")
+            return
+        
+        try:
+            max_tokens = int(command_parts[2])
+            context_manager.set_max_tokens(max_tokens)
+        except ValueError:
+            print(f"{Fore.RED}无效的token数量: {command_parts[2]}{Style.RESET_ALL}")
+        except Exception as e:
+            print(f"{Fore.RED}设置失败: {str(e)}{Style.RESET_ALL}")
+    
+    elif subcommand == 'status':
+        # /context status 命令 - 显示详细状态
+        stats = context_manager.get_context_stats()
+        print(f"{Fore.CYAN}详细上下文状态:{Style.RESET_ALL}")
+        print(f"  最大Token数: {stats['max_tokens']:,}")
+        print(f"  当前使用: {stats['total_tokens']:,}")
+        print(f"  使用率: {stats['utilization_percent']}%")
+        print(f"  对话消息数: {stats['conversation_messages']}")
+        print(f"  项目上下文数: {stats['project_contexts']}")
+        print(f"  代码上下文数: {stats['code_contexts']}")
+        print(f"  有会话摘要: {'是' if stats['has_summary'] else '否'}")
+        
+        # 显示进度条
+        bar_width = 40
+        used_width = int((stats['utilization_percent'] / 100) * bar_width)
+        bar = "█" * used_width + "░" * (bar_width - used_width)
+        color = Fore.GREEN if stats['utilization_percent'] < 70 else Fore.YELLOW if stats['utilization_percent'] < 90 else Fore.RED
+        print(f"  使用情况: {color}[{bar}] {stats['utilization_percent']}%{Style.RESET_ALL}")
+    
+    elif subcommand == 'clear':
+        # /context clear 命令
+        confirm = input(f"{Fore.YELLOW}确认清除所有上下文？(y/N): {Style.RESET_ALL}").strip().lower()
+        if confirm == 'y':
+            context_manager.clear_context()
+        else:
+            print(f"{Fore.YELLOW}已取消{Style.RESET_ALL}")
+    
+    elif subcommand == 'save':
+        # /context save [文件] 命令
+        filename = command_parts[2] if len(command_parts) > 2 else ".byteiq_context.json"
+        context_manager.save_context(filename)
+        print(f"{Fore.GREEN}✓ 上下文已保存到 {filename}{Style.RESET_ALL}")
+    
+    elif subcommand == 'load':
+        # /context load [文件] 命令
+        filename = command_parts[2] if len(command_parts) > 2 else ".byteiq_context.json"
+        if context_manager.load_context(filename):
+            print(f"{Fore.GREEN}✓ 已从 {filename} 加载上下文{Style.RESET_ALL}")
+        else:
+            print(f"{Fore.RED}❌ 加载失败或文件不存在: {filename}{Style.RESET_ALL}")
+    
+    else:
+        print(f"{Fore.RED}未知的context命令: {subcommand}{Style.RESET_ALL}")
+        print(f"{Fore.CYAN}可用命令: set, status, clear, save, load{Style.RESET_ALL}")
+
 def handle_hacpp_command(command_parts):
     """处理HACPP模式命令"""
     if len(command_parts) == 1:
@@ -329,6 +522,14 @@ def process_command(user_input):
     elif command == '/fix':
         handle_fix_command(command_parts)
 
+    # 超大型项目分析命令
+    elif command == '/init':
+        handle_init_command(command_parts)
+
+    # 上下文管理命令
+    elif command == '/context':
+        handle_context_command(command_parts)
+
     # 清屏命令
     elif command == '/clear':
         print_welcome_screen()
@@ -366,5 +567,26 @@ def process_command(user_input):
         print(f"{Fore.RED}未知命令: {command}. 输入 '/help' 或 'help' 查看可用命令{Style.RESET_ALL}")
 
     # 在每个命令执行后打印空行分隔
+    print()
+    _check_and_suggest_analysis_docs()
+    return True
+
+def _check_and_suggest_analysis_docs():
+    """检查是否有项目分析文档可用，并提示用户"""
+    import os
+    from pathlib import Path
+    
+    current_dir = os.getcwd()
+    project_name = os.path.basename(current_dir)
+    docs_folder = os.path.join(current_dir, f"{project_name}_analysis_docs")
+    
+    if os.path.exists(docs_folder) and os.path.isdir(docs_folder):
+        # 检查文档数量
+        md_files = [f for f in os.listdir(docs_folder) if f.endswith('.md')]
+        if md_files:
+            print(f"{Fore.LIGHTBLUE_EX}📁 提示：发现项目分析文档（{len(md_files)}个文件）{Style.RESET_ALL}")
+            print(f"{Fore.CYAN}📝 文档位置：{docs_folder}{Style.RESET_ALL}")
+            print(f"{Fore.YELLOW}💡 当您需要快速了解项目时，可以查看这些分析文档{Style.RESET_ALL}")
+            print()
     print()
     return True

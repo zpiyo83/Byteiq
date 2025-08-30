@@ -22,7 +22,7 @@ class ProjectMemoryManager:
             project_root: 项目根目录路径
         """
         self.project_root = Path(project_root)
-        self.memory_dir = self.project_root / ".forgeai_memory"
+        self.memory_dir = self.project_root / ".byteiq_memory"
         self.memory_file = self.memory_dir / "project_memory.json"
         self.project_id = self._generate_project_id()
         

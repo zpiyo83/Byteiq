@@ -109,9 +109,6 @@ class AIToolProcessor:
             # 检查是否包含可能的不完整工具调用
             incomplete_tool_match = self._check_incomplete_tool_call(ai_response)
             if incomplete_tool_match:
-                # 在命令行输出提示信息
-                from colorama import Fore, Style
-                print(f"{Fore.YELLOW}⚠️ 检测到不完整的工具调用: AI可能想要调用{incomplete_tool_match['tool_name']}工具但格式不完整{Style.RESET_ALL}")
                 return {
                     'has_tool': True,
                     'tool_result': f"❌ 工具调用失败: AI输出不完整，检测到可能的{incomplete_tool_match['tool_name']}工具调用但格式不完整",
@@ -186,6 +183,19 @@ class AIToolProcessor:
                                     print(f"  📌 原始需求: {part[17:]}")
                                 elif part.startswith('COMPLETED_TASKS:'):
                                     print(f"  📝 已完成任务: {part[16:]}")
+                elif tool_name == 'task_complete':
+                    # task_complete工具需要显示任务完成总结
+                    if isinstance(tool_result, dict):
+                        summary = tool_result.get('summary', '')
+                        message = tool_result.get('message', '')
+                        if summary:
+                            print(f"\n{Fore.GREEN}🎉 任务完成总结:{Style.RESET_ALL}")
+                            print(f"{Fore.WHITE}{summary}{Style.RESET_ALL}")
+                        if message:
+                            print(f"\n{Fore.CYAN}📝 {message}{Style.RESET_ALL}")
+                    elif isinstance(tool_result, str) and tool_result:
+                        print(f"\n{Fore.GREEN}🎉 任务完成:{Style.RESET_ALL}")
+                        print(f"{Fore.WHITE}{tool_result}{Style.RESET_ALL}")
                 else:
                     # 其他工具打印摘要（如果有）
                     if tool_summary:
@@ -253,7 +263,7 @@ class AIToolProcessor:
         # 定义可能的不完整工具调用模式
         incomplete_patterns = {
             'read_file': r'<read_file>(.*?)</read_file>',
-            'write_file': r'<write_file>(.*?)</write_file>', 
+            'write_file': r'<write_file>(.*?)</write_file>',
             'create_file': r'<create_file>(.*?)</create_file>',
             'insert_code': r'<insert_code>(.*?)</insert_code>',
             'replace_code': r'<replace_code>(.*?)</replace_code>',
@@ -263,36 +273,12 @@ class AIToolProcessor:
             'delete_file': r'<delete_file>(.*?)</delete_file>'
         }
         
-        # 检查开始标签但没有正确结构的情况
-        start_tag_patterns = {
-            'read_file': r'<read_file(?![^>]*>)',
-            'write_file': r'<write_file(?![^>]*>)',
-            'create_file': r'<create_file(?![^>]*>)',
-            'insert_code': r'<insert_code(?![^>]*>)',
-            'replace_code': r'<replace_code(?![^>]*>)',
-            'execute_command': r'<execute_command(?![^>]*>)',
-            'add_todo': r'<add_todo(?![^>]*>)',
-            'update_todo': r'<update_todo(?![^>]*>)',
-            'delete_file': r'<delete_file(?![^>]*>)'
-        }
-        
-        # 首先检查完整但内容不正确的工具调用
         for tool_name, pattern in incomplete_patterns.items():
             match = re.search(pattern, text, re.DOTALL)
             if match:
                 return {
                     'tool_name': tool_name,
-                    'matched_text': match.group(1),
-                    'type': 'incomplete_content'
-                }
-        
-        # 然后检查只有开始标签的情况
-        for tool_name, pattern in start_tag_patterns.items():
-            if re.search(pattern, text):
-                return {
-                    'tool_name': tool_name,
-                    'matched_text': '',
-                    'type': 'incomplete_tag'
+                    'matched_text': match.group(1)
                 }
         
         return None
@@ -1168,6 +1154,10 @@ GUIDANCE_ENDED_START_FIXING::
         elif tool_name == 'add_todo':
             title = args[0]
             tool_summary = f"[ add_todo ] ──── TODO ────\n  • {title}"
+        elif tool_name == 'update_todo':
+            todo_id = args[0]
+            status = args[1]
+            tool_summary = f"[ update_todo ] ──── TODO ────\n  • 更新任务 {todo_id} -> {status}"
         elif tool_name in ['insert_code', 'replace_code']:
             tool_summary = f"编辑代码: {args[0]}"
         elif tool_name == 'execute_command':

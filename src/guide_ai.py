@@ -29,7 +29,10 @@ class GuideAI:
         
     def get_guide_system_prompt(self):
         """获取引导者AI的系统提示词"""
-        return """你是一个专业的AI调试引导者。你的任务是帮助另一个AI（主AI）诊断和修复问题。
+        from .prompt_templates import get_refusal_guidelines
+        return f"""你是一个专业的AI调试引导者。你的任务是帮助另一个AI（主AI）诊断和修复问题。
+
+{get_refusal_guidelines()}
 
 # 你的角色和职责
 1. **问题分析师**: 深入分析用户报告的bug，理解问题的本质
