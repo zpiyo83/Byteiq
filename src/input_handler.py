@@ -5,14 +5,31 @@
 
 import re
 from colorama import Fore, Style
-from .commands import filter_commands
+from .commands import filter_commands, get_available_commands
 from .modes import mode_manager
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.formatted_text import ANSI
+from prompt_toolkit.completion import Completer, Completion
 # 由于输入逻辑已简化，不再需要实时输入库
 WINDOWS = None
+
+class CommandCompleter(Completer):
+    """命令自动补全器"""
+    def get_completions(self, document, complete_event):
+        text = document.text_before_cursor
+        if text.startswith('/'):
+            commands = get_available_commands()
+            word_before_cursor = document.get_word_before_cursor(WORD=True)
+            
+            for command in commands:
+                if command.startswith(text):
+                    # 显示命令的描述作为提示
+                    from .commands import get_command_descriptions
+                    descriptions = get_command_descriptions()
+                    display_text = f"{command} - {descriptions.get(command, '')}"
+                    yield Completion(command, start_position=-len(text), display=display_text)
 
 def show_command_suggestions(partial_input):
     """显示命令建议"""
@@ -43,8 +60,10 @@ def get_visible_length(text):
 
 def get_input_with_claude_style():
     """
-    使用 prompt_toolkit 实现 Shift+Enter 换行, Enter 发送。
+    使用 prompt_toolkit 实现 Shift+Enter 换行, Enter 发送，并添加命令自动补全功能
     """
+    completer = CommandCompleter()
+    
     kb = KeyBindings()
 
     @kb.add('enter')
@@ -62,10 +81,27 @@ def get_input_with_claude_style():
         """ Ctrl+L: 切换模式 """
         event.app.exit(result="/mode")
 
-    session = PromptSession(key_bindings=kb)
+    @kb.add('tab')
+    def _(event):
+        """ Tab键：触发自动补全或接受当前建议 """
+        buffer = event.app.current_buffer
+        if buffer.complete_state:
+            # 如果已经有补全建议，接受当前建议
+            buffer.complete_next()
+        else:
+            # 触发补全
+            buffer.start_completion(select_first=True)
+
+    session = PromptSession(
+        key_bindings=kb,
+        completer=completer,
+        complete_while_typing=True,
+        complete_in_thread=True
+    )
+    
     prompt_text = ANSI(f"\n{Fore.GREEN}>>> {Style.RESET_ALL}")
 
-    print(f"{Fore.CYAN}提示：按 Enter 发送，Ctrl+J (Ctrl+Enter) 换行。{Style.RESET_ALL}")
+    print(f"{Fore.CYAN}提示：按 Enter 发送，Ctrl+J (Ctrl+Enter) 换行，Tab键自动补全命令。{Style.RESET_ALL}")
 
     try:
         text = session.prompt(prompt_text)
