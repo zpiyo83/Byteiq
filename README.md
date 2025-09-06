@@ -27,19 +27,21 @@ AI: 你好！我是ByteIQ，你的编程助手。我可以帮你创建项目、�
 > 我想做一个贪吃蛇游戏
 AI: 我来帮你创建贪吃蛇游戏！让我先查看项目结构...
 
+## 官网与API购买
+- 官网: [www.byteiq.cn](https://www.byteiq.cn)
+- API购买: [api.byteiq.cn](https://api.byteiq.cn)
+
 ## 安装说明
 
 ### 环境要求
 - Python 3.8 或更高版本
 - pip (Python包管理器)
 
-### 从PyPI安装（推荐）
+### 安装ByteIQ
 pip install byteiq
 
-### 从源码安装
-git clone https://github.com/byteiq/byteiq.git
-cd byteiq
-pip install -e .
+### 安装依赖组件（推荐升级prompt_toolkit）
+python -m pip install -U prompt_toolkit
 
 ## 快速开始
 
