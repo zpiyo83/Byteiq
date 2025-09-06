@@ -8,7 +8,7 @@ import getpass
 from colorama import Fore, Style
 
 CONFIG_PATH = os.path.join(os.path.expanduser("~"), ".byteiq_config.json")
-DEFAULT_API_URL = "https://api-inference.modelscope.cn/v1/chat/completions"
+DEFAULT_API_URL = "https://api.byteiq.cn/v1/chat/completions"
 
 def load_config():
     """加载配置文件"""

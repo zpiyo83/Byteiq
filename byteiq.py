@@ -419,6 +419,11 @@ def handle_special_commands(user_input):
         handle_init_command(command_parts)
         return True
 
+    # GUI命令
+    if user_input.lower() in ['/gui', '/web']:
+        handle_gui_command()
+        return True
+
     return False
 
 def handle_analyze_command():
@@ -529,6 +534,38 @@ def handle_export_command():
         
     except Exception as e:
         print(f"  • 导出命令处理失败: {e}")
+
+def handle_gui_command():
+    """处理GUI命令"""
+    try:
+        from src.theme import theme_manager
+        print(f"\n{theme_manager.format_tool_header('GUI', '启动Web界面')}")
+        
+        # 检查依赖
+        try:
+            import flask
+            import flask_socketio
+        except ImportError:
+            print(f"  • 正在安装Web GUI依赖...")
+            import subprocess
+            subprocess.run([sys.executable, "-m", "pip", "install", "flask", "flask-socketio"], check=True)
+            print(f"  • 依赖安装完成")
+        
+        # 启动Web GUI
+        print(f"  • 启动Web GUI服务器...")
+        print(f"  • 端口: 25059")
+        print(f"  • 浏览器将自动打开")
+        print(f"  • 按 Ctrl+C 停止服务器")
+        
+        # 导入并启动Web GUI
+        from web_gui import start_web_gui
+        start_web_gui(port=25059, auto_open=True)
+        
+    except KeyboardInterrupt:
+        print(f"\n  • Web GUI已停止")
+    except Exception as e:
+        print(f"  • GUI启动失败: {e}")
+        print(f"  • 请确保已安装必要依赖: pip install flask flask-socketio")
 
 def handle_context_command(user_input):
     """处理上下文管理命令"""

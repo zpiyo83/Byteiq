@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ByteIQ - Web GUI</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="/static/css/style.css" rel="stylesheet">
+</head>
+<body>
+    <div id="app">
+        <!-- 顶部导航栏 -->
+        <nav class="navbar">
+            <div class="nav-brand">
+                <i class="fas fa-brain"></i>
+                <span>ByteIQ</span>
+            </div>
+            <div class="nav-menu">
+                <button class="nav-btn" onclick="showTab('chat')">
+                    <i class="fas fa-comments"></i> AI对话
+                </button>
+                <button class="nav-btn" onclick="showTab('todos')">
+                    <i class="fas fa-tasks"></i> TODO管理
+                </button>
+                <button class="nav-btn" onclick="showTab('project')">
+                    <i class="fas fa-project-diagram"></i> 项目分析
+                </button>
+                <button class="nav-btn" onclick="showTab('settings')">
+                    <i class="fas fa-cog"></i> 设置
+                </button>
+            </div>
+        </nav>
+
+        <!-- 主要内容区域 -->
+        <main class="main-content">
+            <!-- AI对话标签页 -->
+            <div id="chat-tab" class="tab-content active">
+                <div class="chat-container">
+                    <div class="chat-header">
+                        <h2><i class="fas fa-robot"></i> AI助手对话</h2>
+                        <div class="chat-controls">
+                            <button class="btn btn-secondary" onclick="clearChat()">
+                                <i class="fas fa-trash"></i> 清除对话
+                            </button>
+                            <button class="btn btn-secondary" onclick="showContextStatus()">
+                                <i class="fas fa-info-circle"></i> 上下文状态
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="chat-messages" id="chatMessages">
+                        <div class="message system-message">
+                            <div class="message-content">
+                                <i class="fas fa-robot"></i>
+                                <span>你好！我是ByteIQ AI助手。我可以帮你编程、分析项目、管理任务等。请告诉我你需要什么帮助？</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="chat-input-container">
+                        <div class="input-group">
+                            <input type="text" id="chatInput" placeholder="输入你的问题或需求..." 
+                                   onkeypress="handleChatKeyPress(event)">
+                            <button class="btn btn-primary" onclick="sendMessage()">
+                                <i class="fas fa-paper-plane"></i> 发送
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TODO管理标签页 -->
+            <div id="todos-tab" class="tab-content">
+                <div class="todos-container">
+                    <div class="todos-header">
+                        <h2><i class="fas fa-tasks"></i> TODO任务管理</h2>
+                        <button class="btn btn-primary" onclick="showAddTodoModal()">
+                            <i class="fas fa-plus"></i> 添加任务
+                        </button>
+                    </div>
+                    
+                    <div class="todos-stats" id="todosStats">
+                        <!-- 统计信息将在这里显示 -->
+                    </div>
+                    
+                    <div class="todos-list" id="todosList">
+                        <!-- TODO列表将在这里显示 -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- 项目分析标签页 -->
+            <div id="project-tab" class="tab-content">
+                <div class="project-container">
+                    <div class="project-header">
+                        <h2><i class="fas fa-project-diagram"></i> 项目分析</h2>
+                        <button class="btn btn-primary" onclick="analyzeProject()">
+                            <i class="fas fa-search"></i> 分析项目
+                        </button>
+                    </div>
+                    
+                    <div class="project-info" id="projectInfo">
+                        <div class="info-card">
+                            <h3>项目分析功能</h3>
+                            <p>点击"分析项目"按钮，AI将自动分析当前项目的结构、技术栈、文件组织等信息，并生成详细的项目配置文件。</p>
+                            <ul>
+                                <li>自动识别项目类型和技术栈</li>
+                                <li>分析代码结构和依赖关系</li>
+                                <li>生成BYTEIQ.md配置文件</li>
+                                <li>提供项目优化建议</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 设置标签页 -->
+            <div id="settings-tab" class="tab-content">
+                <div class="settings-container">
+                    <h2><i class="fas fa-cog"></i> 系统设置</h2>
+                    
+                    <div class="settings-section">
+                        <h3>AI配置</h3>
+                        <div class="form-group">
+                            <label for="apiKey">API密钥</label>
+                            <input type="password" id="apiKey" placeholder="输入你的API密钥">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="aiModel">AI模型</label>
+                            <input type="text" id="aiModel" placeholder="输入模型名称，如: gpt-4, claude-3-sonnet, qwen-coder等">
+                            <small style="color: var(--text-muted); margin-top: 0.5rem; display: block;">
+                                常用模型: gpt-3.5-turbo, gpt-4, claude-3-haiku, claude-3-sonnet, gemini-pro, qwen-coder
+                            </small>
+                        </div>
+                    </div>
+                    
+                    <div class="settings-section">
+                        <h3>界面设置</h3>
+                        <div class="form-group">
+                            <label for="language">语言</label>
+                            <select id="language">
+                                <option value="zh-CN">中文</option>
+                                <option value="en-US">English</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="theme">主题</label>
+                            <select id="theme">
+                                <option value="dark">深色主题</option>
+                                <option value="light">浅色主题</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="settings-actions">
+                        <button class="btn btn-primary" onclick="saveSettings()">
+                            <i class="fas fa-save"></i> 保存设置
+                        </button>
+                        <button class="btn btn-secondary" onclick="loadSettings()">
+                            <i class="fas fa-refresh"></i> 重新加载
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- 状态栏 -->
+        <div class="status-bar">
+            <div class="status-left">
+                <span id="connectionStatus">
+                    <i class="fas fa-circle text-success"></i> 已连接
+                </span>
+            </div>
+            <div class="status-right">
+                <span id="apiStatus">API: 未设置</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 模态框 -->
+    <!-- 添加TODO模态框 -->
+    <div id="addTodoModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>添加新任务</h3>
+                <button class="modal-close" onclick="closeModal('addTodoModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="todoTitle">任务标题</label>
+                    <input type="text" id="todoTitle" placeholder="输入任务标题">
+                </div>
+                <div class="form-group">
+                    <label for="todoDescription">任务描述</label>
+                    <textarea id="todoDescription" placeholder="输入任务描述（可选）"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="todoPriority">优先级</label>
+                    <select id="todoPriority">
+                        <option value="low">低</option>
+                        <option value="medium" selected>中</option>
+                        <option value="high">高</option>
+                        <option value="urgent">紧急</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('addTodoModal')">取消</button>
+                <button class="btn btn-primary" onclick="addTodo()">添加任务</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 上下文状态模态框 -->
+    <div id="contextModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>上下文状态</h3>
+                <button class="modal-close" onclick="closeModal('contextModal')">&times;</button>
+            </div>
+            <div class="modal-body" id="contextModalBody">
+                <!-- 上下文信息将在这里显示 -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-danger" onclick="clearContext()">清除上下文</button>
+                <button class="btn btn-secondary" onclick="closeModal('contextModal')">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 加载指示器 -->
+    <div id="loadingIndicator" class="loading-indicator">
+        <div class="spinner"></div>
+        <span>处理中...</span>
+    </div>
+
+    <!-- 通知容器 -->
+    <div id="notifications" class="notifications"></div>
+
+    <!-- JavaScript -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

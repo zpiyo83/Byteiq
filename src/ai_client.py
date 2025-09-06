@@ -222,7 +222,9 @@ class AIClient:
 
     def send_message_async(self, user_input, include_structure=True, model_override=None):
         """异步发送消息，返回Future对象"""
+        # 每次都重新加载配置以获取最新设置
         config = load_config()
+        self.config = config  # 更新实例配置
 
         if not config.get('api_key'):
             return None
@@ -252,7 +254,9 @@ class AIClient:
 
     def send_message_streaming(self, user_input, include_structure=True, model_override=None, is_continuation=False):
         """流式发送消息给AI，实时显示响应"""
+        # 每次都重新加载配置以获取最新设置
         config = load_config()
+        self.config = config  # 更新实例配置
 
         if not config.get('api_key'):
             return "错误：请先设置API密钥"
@@ -431,6 +435,10 @@ class AIClient:
     def send_message(self, user_input, include_structure=True):
         """发送消息给AI（保持向后兼容）"""
         try:
+            # 每次都重新加载配置以获取最新设置
+            config = load_config()
+            self.config = config  # 更新实例配置
+            
             # 分析用户请求并创建执行计划
             analysis = self.agent_enhancer.analyze_user_request(user_input)
             
@@ -470,7 +478,7 @@ class AIClient:
 
             # 准备请求数据
             data = {
-                "model": self.config.get("model", "gpt-3.5-turbo"),
+                "model": config.get("model", "gpt-3.5-turbo"),
                 "messages": messages,
                 "temperature": 0.7,
                 "max_tokens": 12000
@@ -478,7 +486,7 @@ class AIClient:
 
             headers = {
                 "Content-Type": "application/json",
-                "Authorization": f"Bearer {self.config.get('api_key', '')}"
+                "Authorization": f"Bearer {config.get('api_key', '')}"
             }
 
             # 启动思考动画

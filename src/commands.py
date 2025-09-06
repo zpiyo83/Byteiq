@@ -12,7 +12,7 @@ def get_available_commands():
     return [
         "/help", "/status", "/clear", "/pwd", "/ls", "/cd", "/exit",
         "/s", "/mode", "/clear-history", "/todo", "/todos", "/compact",
-        "/hacpp", "/fix", "/analyze", "/chat", "/export", "/init"
+        "/hacpp", "/fix", "/analyze", "/chat", "/export", "/init", "/gui"
     ]
 
 def get_command_descriptions():
@@ -36,7 +36,8 @@ def get_command_descriptions():
         "/analyze": "分析项目并生成BYTEIQ.md配置文件",
         "/chat": "聊天上下文管理 (save/load/delete)",
         "/export": "导出上下文到当前目录",
-        "/init": "超大型项目分析模式 - 生成完整项目文档"
+        "/init": "超大型项目分析模式 - 生成完整项目文档",
+        "/gui": "启动Web GUI界面 (端口25059)"
     }
 
 def filter_commands(partial_input):
@@ -77,6 +78,7 @@ def show_help():
   {Fore.WHITE}/compact{Style.RESET_ALL}      - 压缩上下文
   {Fore.WHITE}/analyze{Style.RESET_ALL}      - AI增强项目分析并生成BYTEIQ.md配置文件
   {Fore.WHITE}/init{Style.RESET_ALL}        - 超大型项目分析模式 - 生成完整项目文档
+  {Fore.WHITE}/gui{Style.RESET_ALL}         - 启动Web GUI界面 (端口25059)
   {Fore.WHITE}/context{Style.RESET_ALL}      - 上下文管理 (set/status/clear/save/load)
   {Fore.WHITE}/chat save{Style.RESET_ALL}    - 保存上下文到软件目录
   {Fore.WHITE}/chat load{Style.RESET_ALL}    - 交互式加载上下文
